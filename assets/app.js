@@ -1216,6 +1216,11 @@
         if (lines.length >= 2) break;
       }
       if (lines.length < 2 && line) lines.push(line);
+      if (lines.length === 2 && lines[1].length && (i < words.length)) {
+        var last = lines[1];
+        while (last.length > 4 && x.measureText(last + '…').width > 640) last = last.slice(0, -2);
+        lines[1] = last.replace(/[,\s]+$/, '') + '…';
+      }
       lines.forEach(function (l, idx) { x.fillText(l, 64, 258 + idx * 30); });
     }
 
