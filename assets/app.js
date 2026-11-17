@@ -694,8 +694,8 @@
       )
     });
 
-    var hasTemplates = /(^|\/)\.github\/ISSUE_TEMPLATE\//i.test(paths.join('\n'));
-    var hasDocs = /(^|\/)docs\//i.test(paths.join('\n'));
+    var hasTemplates = /(^|\/)\.github\/ISSUE_TEMPLATE\//im.test(paths.join('\n'));
+    var hasDocs = /(^|\/)docs\//im.test(paths.join('\n'));
     add({
       id: 'd_docs', cat: 'product', sev: 'low', points: 4,
       ok: hasTemplates && hasDocs,
