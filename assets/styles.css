@@ -525,6 +525,16 @@ h1 em { font-style: normal; color: var(--mint); }
 body.lang-ru [data-lang="en"] { display: none; }
 body.lang-en [data-lang="ru"] { display: none; }
 
+.cta {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.cta p { margin: 0; color: var(--muted); font-size: 14px; max-width: 660px; }
+.cta a { text-decoration: none; white-space: nowrap; }
+
 @media (max-width: 760px) {
   .scoreboard { grid-template-columns: 1fr; }
   .bars { grid-template-columns: 1fr; }

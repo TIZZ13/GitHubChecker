@@ -88,7 +88,9 @@
       cats: { security: 'Безопасность', runnable: 'Запуск', quality: 'Качество', repo: 'Репозиторий', product: 'Продукт', trust: 'Доверие' },
       promptHeader: 'LaunchCheck — отчёт для {repo}: {score}/100',
       promptIntro: 'Ниже список проблем по порядку важности. Исправь их по одной, не меняя остальное поведение проекта.',
-      cardFooter: 'launchcheck · {host}'
+      cardFooter: 'launchcheck · {host}',
+      cta: 'LaunchCheck бесплатный, без рекламы и без регистрации. Если он помог — поставь звезду на GitHub, это помогает проекту.',
+      ctaBtn: 'Поставить звезду'
     },
     en: {
       kicker: 'Free · no install · no signup',
@@ -153,7 +155,9 @@
       cats: { security: 'Security', runnable: 'Runnable', quality: 'Quality', repo: 'Repository', product: 'Product', trust: 'Trust' },
       promptHeader: 'LaunchCheck report for {repo}: {score}/100',
       promptIntro: 'Below are the problems in order of importance. Fix them one by one without changing the rest of the project.',
-      cardFooter: 'launchcheck · {host}'
+      cardFooter: 'launchcheck · {host}',
+      cta: 'LaunchCheck is free, ad-free and needs no signup. If it helped, star it on GitHub — that is how the project grows.',
+      ctaBtn: 'Star on GitHub'
     }
   };
 
@@ -1028,6 +1032,10 @@
     }
 
     html += '</div>';
+
+    html += '<div class="cta"><p>' + esc(t('cta')) + '</p>' +
+      '<a class="ghost" href="https://github.com/TIZZ13/launchcheck" target="_blank" rel="noopener">' +
+      esc(t('ctaBtn')) + '</a></div>';
 
     result.innerHTML = html;
     result.hidden = false;
