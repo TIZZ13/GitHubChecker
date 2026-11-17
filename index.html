@@ -19,6 +19,16 @@
 <link rel="stylesheet" href="assets/styles.css?v=11">
 </head>
 <body>
+<script>
+/* Set the language before the first paint so both language blocks never show at once. */
+(function () {
+  var l = null;
+  try { l = localStorage.getItem('launchcheck.lang'); } catch (e) { }
+  if (l !== 'ru' && l !== 'en') l = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
+  document.documentElement.lang = l;
+  document.body.className = 'lang-' + l;
+})();
+</script>
 <div class="aura" aria-hidden="true"></div>
 
 <header class="top">
