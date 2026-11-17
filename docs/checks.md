@@ -22,7 +22,7 @@ Secret values are never displayed and never leave the browser. The report names 
 | --- | --- | --- |
 | Install/run instructions | 6 | the README has no installation section and no run command |
 | Project manifest | 4 | there is no `package.json`, `*.csproj`, `*.sln`, `pyproject.toml`, `requirements.txt`, `Cargo.toml`, `go.mod`, `pom.xml`, Gradle, Gemfile, `composer.json` or `index.html` |
-| Lockfile | 3 | there is no lockfile for the detected package manager |
+| Lockfile | 3 | a package manager manifest is present and there is no lockfile next to it |
 | Entry point | 4 | there is no `src/`, `main.*`, `Program.cs`, `App.*`, `index.*`, `app.py`, `manage.py` or `cmd/` |
 | CI | 3 | there is no workflow in `.github/workflows/` |
 

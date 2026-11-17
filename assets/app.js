@@ -488,9 +488,11 @@
     });
 
     var lockFiles = pathsMatching(paths, /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Pipfile\.lock|packages\.lock\.json|Cargo\.lock|go\.sum|composer\.lock|Gemfile\.lock)$/i);
+    var depManifests = pathsMatching(paths, /(^|\/)(package\.json|requirements\.txt|pyproject\.toml|Pipfile|setup\.py|Gemfile|Cargo\.toml|go\.mod|composer\.json|pom\.xml|build\.gradle(\.kts)?|[^/]+\.(csproj|fsproj|vbproj))$/i);
     add({
       id: 'r_lock', cat: 'runnable', sev: 'medium', points: 3,
-      ok: lockFiles.length > 0,
+      /* nothing to pin without a package manager: dependency-free projects are not at risk */
+      ok: lockFiles.length > 0 || depManifests.length === 0,
       title: M('Нет lockfile', 'No lockfile'),
       why: M('Без lockfile у каждого будут разные версии зависимостей, и «у меня работает» превращается в лотерею.',
         'Without a lockfile everyone gets different dependency versions, and “works on my machine” becomes a lottery.'),
@@ -568,7 +570,8 @@
     var ciTestRe = /\b(npm (run )?test|yarn test|pnpm test|node --test|pytest|python -m pytest|dotnet test|go test|cargo test|mvn test|gradlew? test|phpunit|jest|vitest|ctest)\b/i;
     add({
       id: 'q_citest', cat: 'quality', sev: 'medium', points: 3,
-      ok: workflows.length > 0 && ciTestRe.test(ctx.workflowText || ''),
+      /* without any workflow there is nothing that could skip the tests - r_ci already reports that */
+      ok: workflows.length === 0 || ciTestRe.test(ctx.workflowText || ''),
       vars: {},
       title: M('CI не запускает тесты', 'CI does not run tests'),
       why: M('Сборка проверяется, а тесты — нет. Красные тесты спокойно доедут до пользователей.',

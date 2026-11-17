@@ -12,6 +12,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - The language button announces the language it switches to and updates its label and accessible name together.
 - Fonts are bundled under the SIL Open Font License 1.1 (`assets/fonts/OFL.txt`), so the page makes no third-party requests.
 
+### Fixed
+
+- The lockfile check no longer fires on projects with no package manager: there is nothing to pin in a dependency-free static site.
+- The "CI does not run tests" check no longer fires when the repository has no workflow at all. `No CI` already covers that case, and the old rule deducted the points twice.
+
 ## [1.0.0] — 2026-11-18
 
 First public release.
