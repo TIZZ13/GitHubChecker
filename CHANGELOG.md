@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- New visual identity: a printed inspection dossier on cream paper. Type is set in self-hosted Literata (display), Onest (text) and JetBrains Mono (numbers and labels), with a ruler-tick score gauge, stamped verdicts and a numbered issue ledger instead of cards.
+- Share card, SVG badge and the social preview are drawn in the same paper palette.
+- Small text now meets WCAG AA contrast on the paper background: muted browns instead of the light ones, a darker vermillion and ochre.
+- The language button announces the language it switches to and updates its label and accessible name together.
+- Fonts are bundled under the SIL Open Font License 1.1 (`assets/fonts/OFL.txt`), so the page makes no third-party requests.
+
 ## [1.0.0] — 2026-11-18
 
 First public release.
