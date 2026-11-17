@@ -93,7 +93,7 @@ Run the tests (Node 20+, no dependencies):
 node --test tests/
 ```
 
-The suite covers URL parsing and the secret scanner — the two places where a silent bug would produce a wrong score. CI runs the same tests, a syntax check and a check that every local asset exists.
+The suite covers URL parsing and the secret scanner — the two places where a silent bug would produce a wrong score. `scripts/check.py` verifies that every local asset referenced by `index.html` exists and that the social preview image stays small; run it with `python3 scripts/check.py`.
 
 ## Roadmap
 

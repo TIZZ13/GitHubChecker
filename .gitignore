@@ -10,3 +10,6 @@ desktop.ini
 
 # Local tooling
 node_modules/
+
+# Held back until the GitHub token has the workflow scope
+/.ci-hold/
