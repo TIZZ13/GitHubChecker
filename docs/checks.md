@@ -1,67 +1,110 @@
 # What LaunchCheck checks
 
-23 checks, 100 points. Every check is a fixed rule over public repository data: the same repository always gets the same score.
+LaunchCheck has two audit profiles over the same public repository data:
 
-If a check does not apply to your project, the prompt says so — for example, a desktop app can ship a GIF instead of a live demo.
+- **Author** (developer mode) — what stops the project from looking ready, with a prompt for an AI agent.
+- **Downloader** (user mode) — what is known about the project and its files before running them. It is not a virus scan and not a safety guarantee.
 
-## Security — 25 points
+Every check is a fixed rule. There is no AI and no randomness: the same repository always gets the same score, in both languages and in both modes.
+
+The report first detects **what kind of project this is** and adjusts the rules to it. Checks that do not apply are not scored at all: they are listed under "Not scored" instead of silently failing.
+
+## How the score is calculated
+
+Each check carries a weight. The score is
+
+```
+round(earned weight / applicable weight × 100)
+```
+
+Skipped checks add nothing to either side, so a project is never punished for a rule that does not apply. If every check in a profile is skipped, the score is 0 rather than a division by zero.
+
+A mode switch after an audit rebuilds the check list from the data already in memory. No GitHub request is made, and the mode is stored in `?mode=` and `localStorage`.
+
+## Project detection
+
+| Signal | Used for |
+| --- | --- |
+| File tree and README | kind: desktop, web, CLI, library, game, bot, docs, other |
+| Release assets, manifests, README words | platform: Windows, macOS, Linux, multiple, browser, unknown |
+| Main language, extensions | stack label (C# / .NET, TypeScript, Python…) |
+| Release assets | distribution: ready-made files, package manager, website, source only |
+| Repository age and size | a new small project gets lenient weights |
+| README and description | "toy" wording, English section, feature claims |
+
+Context rules currently applied:
+
+- A **library** does not need a live demo or GitHub Releases; a usage example and a package install command are enough.
+- A **desktop app** satisfies the demo check with screenshots or a GIF in the README.
+- A **web app** needs a live demo link; requirements are satisfied by the demo itself.
+- **Build scripts** (`build.ps1`, `Makefile`, `CMakeLists.txt`, `*.sln`) count as a project manifest.
+- The **entry point** is also recognised in `Launcher.cs`, `Program.cs`, `App.*` and in the file a build script compiles.
+- A **bilingual README** counts as English if it has an English section (`## ENG`) or a `README.en` file.
+- **Contact** is satisfied when GitHub Issues are enabled.
+- A **small new project** (≤25 files, <14 days, no tests) or a clearly **joke/toy project** gets halved weights and a lower severity for CI, tests, linter, changelog and contributor rules. The text explains why.
+- `requirements.txt` is not treated as a package manager that needs a lockfile: it already pins versions.
+
+## Author mode — 23 checks, 100 points
+
+### Security — 25
 
 | Check | Points | Fails when |
 | --- | --- | --- |
-| `.env` committed | 8 | a file matching `.env` or `.env.*` is in the tree and is not an example/template |
-| Private keys | 7 | `id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore` are in the tree |
-| Secrets in configs | 10 | up to four config files contain strings shaped like AWS keys, GitHub tokens, API keys, Google keys, private key headers or hardcoded credentials |
+| `.env` committed | 7 | a `.env` or `.env.*` file is in the tree and is not an example/template |
+| Private keys | 5 | `id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore` are in the tree |
+| Secrets in configs | 8 | a fetched config or source file contains an AWS key, GitHub token, API key, Google key, private-key header or hardcoded credential |
+| Dangerous calls without warning | 5 | the source uses a high-risk API that the README does not mention |
 
-Placeholders are ignored: values containing `your_`, `example`, `changeme`, `xxxx`, `<...>`, `${...}`, `process.env`, `os.environ`, `dummy` and similar do not count.
+Placeholders are ignored: `your_`, `example`, `changeme`, `xxxx`, `<...>`, `${...}`, `process.env`, `os.environ`, `dummy` and similar do not count.
 
 Secret values are never displayed and never leave the browser. The report names the file and the kind of secret, nothing else.
 
-## Runnable — 20 points
+### Runnable — 20
 
 | Check | Points | Fails when |
 | --- | --- | --- |
-| Install/run instructions | 6 | the README has no installation section and no run command |
-| Project manifest | 4 | there is no `package.json`, `*.csproj`, `*.sln`, `pyproject.toml`, `requirements.txt`, `Cargo.toml`, `go.mod`, `pom.xml`, Gradle, Gemfile, `composer.json` or `index.html` |
-| Lockfile | 3 | a package manager manifest is present and there is no lockfile next to it |
-| Entry point | 4 | there is no `src/`, `main.*`, `Program.cs`, `App.*`, `index.*`, `app.py`, `manage.py` or `cmd/` |
+| Install/run instructions | 6 | the README has no installation section, download hint or run command |
+| Project manifest | 4 | there is no `package.json`, `*.csproj`, `*.sln`, Python manifest, `Cargo.toml`, `go.mod`, Maven/Gradle, Gemfile, `composer.json`, `CMakeLists.txt`, `Makefile`, build script or `index.html` |
+| Lockfile | 3 | a manager that normally writes a lockfile is present and none exists. Skipped for plain `requirements.txt` / `setup.py` |
+| Entry point | 4 | there is no `src/`, `main.*`, `Program.cs`, `Launcher.cs`, `App.*`, `index.*`, `app.py` and no file compiled by the build script |
 | CI | 3 | there is no workflow in `.github/workflows/` |
 
-## Quality — 15 points
+### Quality — 15
 
 | Check | Points | Fails when |
 | --- | --- | --- |
 | Tests | 6 | there is no `tests/`, `test/`, `__tests__/`, `spec/` directory and no `*.test.*`, `*.spec.*`, `*_test.*`, `*Tests.cs` |
 | Linter and formatter | 4 | there is no ESLint, Prettier, Ruff, flake8, EditorConfig, StyleCop, golangci-lint, clippy, detekt or RuboCop config |
-| Tests in CI | 3 | a workflow exists but never runs the test command |
-| Huge files | 2 | a file in the repository is larger than 10 MB |
+| Tests in CI | 3 | a workflow exists but never runs the test command. Skipped when there is no CI at all |
+| Huge files | 2 | a media file is larger than 20 MB or another file is larger than 10 MB |
 
-## Repository — 15 points
+### Repository — 15
 
 | Check | Points | Fails when |
 | --- | --- | --- |
 | License | 5 | GitHub does not detect a license |
-| Presentation | 8 | the description is shorter than 20 characters, there are fewer than 3 topics, the README is shorter than 800 characters, or it has no image |
-| English README | 2 | more than 15% of the letters in the README are Cyrillic |
+| Presentation | 8 | the description is shorter than 20 characters, there are fewer than 3 topics, the README is shorter than 800 characters (or no image) |
+| English README | 2 | the README is mostly Russian and has no English section or `README.en`. Skipped for very short READMEs |
 
-## Product — 15 points
+### Product — 15
 
 | Check | Points | Fails when |
 | --- | --- | --- |
-| Demo link | 5 | the repository has no Website URL |
-| Releases | 3 | there are no GitHub Releases |
+| Demo | 6 | no Website URL, no demo link, and no screenshot/GIF for a non-web project. Skipped for libraries |
+| Releases | 3 | there are no GitHub Releases. Skipped for libraries |
 | Changelog | 2 | there is no `CHANGELOG`, `CHANGES` or `HISTORY` file |
-| Issue templates and docs | 4 | `.github/ISSUE_TEMPLATE/` or `docs/` is missing |
-| Screenshot | 1 | the README has no image and never mentions a screenshot, demo or GIF |
+| Issue templates and docs | 4 | `.github/ISSUE_TEMPLATE/` or documentation pages are missing |
+| — | — | The screenshot requirement is part of Presentation, not a separate check |
 
-## Trust — 10 points
+### Trust — 10
 
 | Check | Points | Fails when |
 | --- | --- | --- |
-| Verifiability | 4 | there is no `SECURITY.md` and the README does not mention SHA-256, checksums or signatures |
+| Verifiability | 4 | for a binary release: no checksums or signature; otherwise: no `SECURITY.md` and no checksums in the README |
 | Contributor guidelines | 3 | there is neither `CONTRIBUTING.md` nor `CODE_OF_CONDUCT.md` |
-| Contact | 3 | the README has no contact, support or security contact and there is no `SUPPORT.md` |
+| Contact | 3 | Issues are disabled and the README has no contact or security contact |
 
-## Grades
+### Author grades
 
 | Score | Meaning |
 | --- | --- |
@@ -70,11 +113,108 @@ Secret values are never displayed and never leave the browser. The report names 
 | 50–69 | Too early to show |
 | 0–49 | Fix it first |
 
+## Downloader mode — 21 checks, 100 points
+
+This mode answers a different question: *if I download this, what should I know first?* It never claims that a file is safe or virus-free.
+
+### Security — 28
+
+| Check | Points | Fails when |
+| --- | --- | --- |
+| Source is open | 8 | there are only ready-made files; skipped for documentation-only repositories |
+| Dangerous calls without warning | 8 | the source uses network, autostart, process injection, obfuscation, masquerading, shutdown, keyboard hooks, registry changes, Explorer control, process launch or file deletion, and the README does not mention it |
+| Other undeclared actions | 4 | the same, for medium-risk actions only |
+| Checksums or signature | 8 | there are downloadable release files and no SHA-256/checksum/signature. Skipped when there is nothing to download |
+
+### Runnable — 15
+
+| Check | Points | Fails when |
+| --- | --- | --- |
+| Install instructions | 5 | the README does not explain how to install or download |
+| Something to download | 5 | no release file, no demo and no package install command |
+| Requirements | 5 | the README does not state the system, runtime or browser |
+
+### Quality — 15
+
+| Check | Points | Fails when |
+| --- | --- | --- |
+| Screenshots or video | 6 | the README and `docs/` have no screenshots, GIF or video |
+| A place for feedback | 4 | Issues and Discussions are disabled and there is no contact. Skipped for a brand-new project with no feedback yet |
+| Still maintained | 5 | the last push is older than 180 days |
+
+### Repository — 10
+
+| Check | Points | Fails when |
+| --- | --- | --- |
+| License | 4 | GitHub does not detect a license |
+| Clear description | 4 | the description is shorter than 20 characters or the README is shorter than 600 characters |
+| Other users | 2 | fewer than 5 stars, no forks and no release downloads |
+
+### Product — 20
+
+| Check | Points | Fails when |
+| --- | --- | --- |
+| Claims match the README | 6 | the README covers fewer than half of the meaningful words from the description. Skipped when the description and README are in different languages, because they cannot be compared word by word |
+| Features described | 4 | there is no feature list (5+ bullets) and the README is shorter than 1500 characters |
+| Release notes | 3 | a release exists but its description is shorter than 40 characters. Skipped when there are no releases |
+| File for your system | 3 | the platform is unknown, or a web demo / package install command is missing |
+| Warnings about side effects | 4 | fewer than two of these are in the README: how to stop the app, how to undo changes, a warning about antivirus/SmartScreen/admin rights. Skipped for libraries, web apps and docs |
+
+### Trust — 12
+
+| Check | Points | Fails when |
+| --- | --- | --- |
+| Security contact | 4 | there is no `SECURITY.md` and the README does not say how to report a vulnerability |
+| Automated build | 4 | releases exist but there is no CI workflow. Skipped when there are no releases |
+| Project history | 4 | the repository is younger than 30 days and has fewer than 25 stars |
+
+### Downloader grades
+
+| Score | Meaning |
+| --- | --- |
+| 85–100 | Try with care |
+| 70–84 | Check first |
+| 50–69 | Many questions |
+| 0–49 | Better not run |
+
+## The file safety brief
+
+Downloader mode adds a separate card built from the risk scan and release metadata. It lists facts, not verdicts:
+
+- how many source files were read, or that the source is closed;
+- whether the code makes network requests;
+- which risky behaviours the README already declares (declared behaviour is shown, not punished);
+- whether checksums or a signature exist;
+- whether the file is unsigned, inside a password-protected archive, or asks for administrator rights;
+- if there is nothing to download (a library, a website, source-only), the card says so and hides the VirusTotal action;
+- a reminder that the release files were not scanned by antivirus and a link to VirusTotal.
+
+The card never says "safe" or "no viruses". It says "no risk signals were found" and always ends with "This is not a safety guarantee."
+
+## What the risk scan looks for
+
+| Risk | Level | Examples |
+| --- | --- | --- |
+| Network access | high | `HttpClient`, `requests.get`, `fetch(`, `Invoke-WebRequest` |
+| Autostart | high | `CurrentVersion\Run`, `schtasks /create`, LaunchAgents, `.bashrc` |
+| Process injection | high | `CreateRemoteThread`, `WriteProcessMemory`, `LD_PRELOAD` |
+| Obfuscation | high | `FromBase64String`, `eval(`, `-EncodedCommand` |
+| Masquerading | high | `WUDFHost`, `svchost.exe`, writing an `.exe` into `LOCALAPPDATA` |
+| Shutdown or reboot | high | `shutdown /r`, `ExitWindowsEx`, `bcdedit`, `vssadmin` |
+| Keyboard hooks | medium | `SetWindowsHookEx`, `GetAsyncKeyState`, `BlockInput` |
+| Registry or policy changes | medium | `Registry.CurrentUser`, `reg add` |
+| Explorer control | medium | killing or restarting `explorer.exe` |
+| Launching other programs | medium | `Process.Start`, `subprocess.Popen` |
+| File deletion | medium | `File.Delete`, `Remove-Item`, `shutil.rmtree` |
+
+Comments are stripped before scanning. A call is **declared** when the README or description mentions the matching behaviour (network, reboot, keyboard, registry, fullscreen, restore, delete…). Undeclared high-risk calls are critical; undeclared medium-risk calls are a partial deduction.
+
 ## What is intentionally not checked
 
-- Code quality, architecture, performance, accessibility of the product itself.
+- Actual code quality, architecture, performance or accessibility of the product.
 - Dependency vulnerabilities and license compatibility.
-- Popularity: stars, forks and commit frequency are shown but never scored.
+- Antivirus results, file hashes or sandbox execution. LaunchCheck never downloads or runs release files.
+- Popularity as a score: stars, forks and downloads are shown where relevant but are not a quality verdict.
 - Anything that requires cloning the repository. Only public API data is used.
 
-The score measures readiness to be seen by strangers. It is not a verdict on the project.
+The score measures readiness (author mode) or the number of open questions before downloading (downloader mode). It is not a verdict on the project.

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LaunchCheck — audit your GitHub repo before you launch it</title>
-<meta name="description" content="Free audit for a public GitHub repository: a score out of 100, plain-language issues and ready-to-paste prompts for your AI agent. No signup, no backend.">
+<meta name="description" content="Free audit for a public GitHub repository. Two modes: fix your own project, or judge whether a project is worth downloading. Score out of 100, plain-language issues. No signup, no backend.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="LaunchCheck — audit your GitHub repo before you launch it">
-<meta property="og:description" content="Paste a repository link, get a score out of 100, a plain-language list of problems and prompts you can hand straight to your AI agent.">
+<meta property="og:description" content="Paste a repository link, get a score out of 100 and a plain-language list of problems. Two modes: for the author, or for someone about to download the project.">
 <meta property="og:site_name" content="LaunchCheck">
 <meta property="og:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
 <meta property="og:image:width" content="1200">
@@ -17,7 +17,7 @@
 <meta name="twitter:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
 <meta name="theme-color" content="#f2ebda">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f2ebda'/%3E%3Crect x='5' y='5' width='54' height='54' fill='none' stroke='%2317130e' stroke-width='4'/%3E%3Cpath d='M19 34l9 9 18-21' fill='none' stroke='%23bd3310' stroke-width='7' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/styles.css?v=13">
+<link rel="stylesheet" href="assets/styles.css?v=14">
 </head>
 <body>
 <script>
@@ -54,7 +54,19 @@
     <div class="hero-main">
       <p class="kicker"><span class="dot"></span><span data-i18n="kicker">Бесплатно · без установки · без регистрации</span></p>
       <h1 data-i18n-html="h1">Проверь проект<br>до того, как его увидят</h1>
-      <p class="lead" data-i18n="lead">Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.</p>
+      <p class="lead" data-i18n="lead">Вставь ссылку на GitHub-репозиторий. Выбери, кто ты: автор проекта или человек, который собирается его скачать. Получи оценку, понятные объяснения и точные шаги.</p>
+
+      <div class="modes" id="modes" role="group" aria-label="Режим проверки">
+        <button class="mode is-on" type="button" data-mode="dev" aria-pressed="true">
+          <span class="mode-name" data-i18n="modeDev">Автор проекта</span>
+          <span class="mode-sub" data-i18n="modeDevSub">что починить</span>
+        </button>
+        <button class="mode" type="button" data-mode="user" aria-pressed="false">
+          <span class="mode-name" data-i18n="modeUser">Скачиваю</span>
+          <span class="mode-sub" data-i18n="modeUserSub">стоит ли доверять</span>
+        </button>
+      </div>
+      <p class="mode-blurb" id="modeBlurb">Проверка перед публикацией: что мешает проекту выглядеть готовым и что исправить в первую очередь.</p>
 
       <form id="form" class="search" autocomplete="off">
         <div class="field">
@@ -82,7 +94,7 @@
         <li data-i18n="note2">Нет ли в репозитории секретов?</li>
         <li data-i18n="note3">Поверит ли этому незнакомый человек?</li>
       </ol>
-      <p class="mn-foot" data-i18n="noteFoot">23 правила · без ИИ</p>
+      <p class="mn-foot" data-i18n="noteFoot">2 режима · 23 правила · без ИИ</p>
     </aside>
   </section>
 
@@ -92,7 +104,7 @@
 
   <section class="explain">
     <div data-lang="ru">
-      <h2>Что проверяется</h2>
+      <h2>Что проверяется в режиме автора</h2>
       <div class="grid">
         <article class="ex">
           <h3>Безопасность <span>25</span></h3>
@@ -120,9 +132,14 @@
         </article>
       </div>
 
+      <h2>Два режима проверки</h2>
+      <p><b>Автор проекта.</b> 23 правила о том, что мешает проекту выглядеть готовым, и готовые промпты для твоего ИИ-агента.</p>
+      <p><b>Скачиваю.</b> 21 правило о том, стоит ли доверять готовым файлам: что известно о коде, есть ли контрольные суммы и предупреждения о поведении. Это не проверка на вирусы и не гарантия безопасности.</p>
+      <p class="privacy">Правила подстраиваются под тип проекта: библиотеке и настольной программе не нужно живое демо, а маленькому шуточному проекту не снижают балл за отсутствие CI. Неприменимые проверки не штрафуют и перечислены как «Не оценивалось». Оценка пересчитывается из уже загруженных данных: режим можно переключить после проверки, без новых запросов.</p>
+
       <h2>Как это работает</h2>
       <ol class="steps">
-        <li><b>Читает публичные данные.</b> Сайт делает несколько запросов к GitHub API: описание, файлы, README, релизы.</li>
+        <li><b>Читает публичные данные.</b> Сайт делает несколько запросов к GitHub API: описание, файлы, README, релизы и немного исходников для проверки рисков.</li>
         <li><b>Прогоняет правила.</b> Это детерминированные проверки, а не ИИ: одинаковый репозиторий всегда получает одинаковый балл.</li>
         <li><b>Объясняет и даёт промпт.</b> Каждая проблема — человеческим языком, с готовым текстом для твоего агента.</li>
       </ol>
@@ -132,7 +149,7 @@
     </div>
 
     <div data-lang="en">
-      <h2>What gets checked</h2>
+      <h2>What gets checked in author mode</h2>
       <div class="grid">
         <article class="ex"><h3>Security <span>25</span></h3><p>Secrets in code, committed <code>.env</code>, private keys, configs with passwords.</p></article>
         <article class="ex"><h3>Runnable <span>20</span></h3><p>Install/run instructions, manifest, lockfile, entry point, CI.</p></article>
@@ -142,9 +159,14 @@
         <article class="ex"><h3>Trust <span>10</span></h3><p>Checksums, security policy, contributing guide, contacts.</p></article>
       </div>
 
+      <h2>Two audit modes</h2>
+      <p><b>I am the author.</b> 23 rules about what keeps the project from looking ready, plus ready-to-paste prompts for your AI agent.</p>
+      <p><b>I am downloading.</b> 21 rules about whether the ready-made files are worth trusting: what is known about the code, whether checksums and behaviour warnings exist. This is not a virus scan and not a safety guarantee.</p>
+      <p class="privacy">The rules adjust to the kind of project: a library or a desktop app does not need a live demo, and a small joke project is not marked down for missing CI. Checks that do not apply are not scored and are listed as “Not scored”. The score is recomputed from data already loaded, so you can switch modes after an audit without new requests.</p>
+
       <h2>How it works</h2>
       <ol class="steps">
-        <li><b>Reads public data.</b> A few GitHub API requests: description, file tree, README, releases.</li>
+        <li><b>Reads public data.</b> A few GitHub API requests: description, file tree, README, releases and a few source files for the risk scan.</li>
         <li><b>Runs rules.</b> Deterministic checks, not AI: the same repository always gets the same score.</li>
         <li><b>Explains and hands you a prompt.</b> Every issue is plain language, with text you can paste into your agent.</li>
       </ol>
@@ -182,6 +204,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="assets/app.js?v=13" defer></script>
+<script src="assets/app.js?v=14" defer></script>
 </body>
 </html>

@@ -5,15 +5,17 @@
   'use strict';
 
   var API = 'https://api.github.com';
-  var LS = { token: 'launchcheck.token', lang: 'launchcheck.lang', last: 'launchcheck.last' };
+  var LS = { token: 'launchcheck.token', lang: 'launchcheck.lang', last: 'launchcheck.last', mode: 'launchcheck.mode' };
 
   var state = {
     lang: 'ru',
+    mode: 'dev',
     token: '',
     busy: false,
     ctx: null,
     checks: [],
     findings: [],
+    skipped: [],
     score: 0,
     catScores: {},
     rate: null,
@@ -29,13 +31,24 @@
       kicker: 'Бесплатно · без установки · без регистрации',
       pageTitle: 'LaunchCheck — проверь проект до того, как его увидят',
       h1: 'Проверь проект<br>до того, как его <em>увидят</em>',
-      lead: 'Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.',
+      lead: 'Вставь ссылку на GitHub-репозиторий. Выбери, кто ты: автор проекта или человек, который собирается его скачать. Получи оценку, понятные объяснения и точные шаги.',
       noteHead: 'Полевая заметка 01',
       noteTitle: 'Три вопроса, на которые отвечает отчёт',
       note1: 'Запустится ли проект с чистого клона?',
       note2: 'Нет ли в репозитории секретов?',
       note3: 'Поверит ли этому незнакомый человек?',
-      noteFoot: '23 правила · без ИИ',
+      noteFoot: '2 режима · 23 правила · без ИИ',
+      modeGroup: 'Режим проверки',
+      modeDev: 'Автор проекта',
+      modeDevSub: 'что починить',
+      modeUser: 'Скачиваю',
+      modeUserSub: 'стоит ли доверять',
+      modeBlurbDev: 'Проверка перед публикацией: что мешает проекту выглядеть готовым и что исправить в первую очередь.',
+      modeBlurbUser: 'Проверка перед скачиванием: что известно о коде, файлах и репутации проекта. Это не проверка на вирусы.',
+      modeFlagDev: 'Проверка автора',
+      modeFlagUser: 'Проверка перед скачиванием',
+      modeShortDev: 'AUTHOR',
+      modeShortUser: 'DOWNLOADER',
       check: 'Проверить',
       hint: 'Работает с публичными репозиториями. Приватные — добавь токен в настройках.',
       placeholder: 'owner/repo или ссылка на GitHub',
@@ -49,7 +62,7 @@
       loadingRepo: 'Читаю репозиторий…',
       loadingTree: 'Смотрю файлы…',
       loadingReadme: 'Читаю README…',
-      loadingScan: 'Проверяю конфиги на секреты…',
+      loadingScan: 'Читаю код и конфиги…',
       loadingScore: 'Считаю баллы…',
       errNotFound: 'Репозиторий не найден или он приватный. Проверь ссылку — или добавь токен в настройках.',
       errRate: 'Лимит GitHub API исчерпан. Сброс в {time}. Добавь токен в настройках, чтобы получить 5000 запросов в час.',
@@ -65,12 +78,42 @@
       gradeBad: 'Сначала починить',
       summary: 'По категориям',
       issues: 'Что починить',
+      issuesUser: 'На что обратить внимание',
       noIssues: 'Проблем не найдено. Хороший знак — но глазами всё равно проверь.',
+      noIssuesUser: 'Явных проблем не найдено. Это не гарантия безопасности: проверь файл на VirusTotal и запусти в Sandbox.',
       issueOne: 'проблема',
       issueFew: 'проблемы',
       issueMany: 'проблем',
+      actionLabel: 'Что сделать',
       copyPrompt: 'Скопировать промпт',
+      copyStep: 'Скопировать шаг',
       copyAll: 'Скопировать все промпты',
+      copyNote: 'Скопировать памятку',
+      copyAllNote: 'Скопировать памятки',
+      profileHead: 'Что это за проект',
+      profileNote: 'Правила ниже подстроены под этот тип проекта.',
+      profileNoteUnknown: 'Тип проекта определить точно не удалось — правила применены без поправок.',
+      skippedLabel: 'Не оценивалось',
+      safetyHead: 'Проверка файлов',
+      safetyIntro: 'LaunchCheck читает код и метаданные. Он не скачивает и не запускает файлы.',
+      safetySourceOpen: 'Исходный код открыт: прочитано {n} файлов.',
+      safetySourceClosed: 'Исходный код закрыт: проверить, что внутри, можно только антивирусом.',
+      safetyNoNetwork: 'В проверенных файлах нет сетевых запросов.',
+      safetyNetwork: 'В коде есть сетевые запросы: программа может связываться с интернетом.',
+      safetyDeclared: 'README предупреждает о поведении: {items}. Это заявлено, а не скрыто.',
+      safetyNoChecksums: 'Контрольных сумм и подписи нет: проверить файл можно только антивирусом.',
+      safetyUnsigned: 'Файл не подписан — Windows SmartScreen может предупредить. Это не признак вируса, но и не подтверждение безопасности.',
+      safetyArchive: 'Релиз лежит в архиве с паролем: антивирус не увидит содержимое, пока ты его не распакуешь.',
+      safetyAdmin: 'Программа просит права администратора — это даёт ей широкий доступ к системе.',
+      safetyNoScan: 'Файлы из релизов не проверены антивирусом.',
+      safetyNoFiles: 'В релизах нет готовых файлов: скачивать нечего, код ставится из исходников или через пакетный менеджер.',
+      safetySite: 'Это сайт: устанавливать ничего не нужно, он открывается в браузере.',
+      safetyVt: 'Проверь скачанный файл на VirusTotal — это бесплатно.',
+      safetyVtBtn: 'Открыть VirusTotal',
+      safetyNotGuarantee: 'Это не гарантия безопасности. Решение запускать файл всегда за тобой.',
+      userHeader: 'LaunchCheck — проверка перед скачиванием: {repo}, {score}/100',
+      userIntro: 'Это не гарантия безопасности и не проверка на вирусы. Ниже — что известно о проекте и что стоит сделать перед запуском.',
+      gradesUser: { great: 'Можно пробовать осторожно', good: 'Сначала проверь', meh: 'Много вопросов', bad: 'Лучше не запускать' },
       card: 'Скачать карточку',
       badge: 'Скачать бейдж',
       again: 'Проверить снова',
@@ -78,6 +121,7 @@
       showLess: 'Свернуть',
       copied: 'Скопировано',
       copiedAll: 'Все промпты скопированы',
+      copiedAllNote: 'Все памятки скопированы',
       copyFail: 'Браузер не дал скопировать — выдели текст вручную',
       cardDone: 'Карточка сохранена',
       badgeDone: 'Бейдж сохранён',
@@ -104,13 +148,24 @@
       kicker: 'Free · no install · no signup',
       pageTitle: 'LaunchCheck — audit your GitHub repo before you launch it',
       h1: 'Check your project<br>before people <em>see it</em>',
-      lead: 'Paste a GitHub repository link. Get a score out of 100, a plain-language list of problems, and ready-to-paste prompts for your AI agent.',
+      lead: 'Paste a GitHub repository link. Choose who you are: the author, or someone about to download it. Get a score, plain explanations, and exact next steps.',
       noteHead: 'Field note 01',
       noteTitle: 'Three questions the report answers',
       note1: 'Does it run from a clean clone?',
       note2: 'Is anything secret sitting in the tree?',
       note3: 'Would a stranger trust it on sight?',
-      noteFoot: '23 rules · no AI',
+      noteFoot: '2 modes · 23 rules · no AI',
+      modeGroup: 'Audit mode',
+      modeDev: 'I am the author',
+      modeDevSub: 'what to fix',
+      modeUser: 'I am downloading',
+      modeUserSub: 'should I trust it',
+      modeBlurbDev: 'A check before publishing: what keeps the project from looking ready, and what to fix first.',
+      modeBlurbUser: 'A check before downloading: what is known about the code, files and reputation. This is not a virus scan.',
+      modeFlagDev: 'Author audit',
+      modeFlagUser: 'Download check',
+      modeShortDev: 'AUTHOR',
+      modeShortUser: 'DOWNLOADER',
       check: 'Check',
       hint: 'Works with public repositories. For private ones, add a token in settings.',
       placeholder: 'owner/repo or a GitHub link',
@@ -140,12 +195,42 @@
       gradeBad: 'Fix it first',
       summary: 'By category',
       issues: 'What to fix',
+      issuesUser: 'What to watch for',
       noIssues: 'No problems found. Good sign — but still look at it with your own eyes.',
+      noIssuesUser: 'No obvious problems found. This is not a safety guarantee: check the file on VirusTotal and run it in a sandbox.',
       issueOne: 'issue',
       issueFew: 'issues',
       issueMany: 'issues',
+      actionLabel: 'What to do',
       copyPrompt: 'Copy prompt',
+      copyStep: 'Copy step',
       copyAll: 'Copy all prompts',
+      copyNote: 'Copy checklist',
+      copyAllNote: 'Copy all steps',
+      profileHead: 'What this project is',
+      profileNote: 'The rules below are adjusted to this kind of project.',
+      profileNoteUnknown: 'The project type could not be determined reliably, so the rules were applied without adjustments.',
+      skippedLabel: 'Not scored',
+      safetyHead: 'File check',
+      safetyIntro: 'LaunchCheck reads code and metadata. It does not download or run any files.',
+      safetySourceOpen: 'The source is open: {n} files were read.',
+      safetySourceClosed: 'The source is closed: only antivirus can tell what is inside.',
+      safetyNoNetwork: 'The files that were read make no network requests.',
+      safetyNetwork: 'The code makes network requests: the program may talk to the internet.',
+      safetyDeclared: 'The README warns about this behaviour: {items}. It is declared, not hidden.',
+      safetyNoChecksums: 'There are no checksums and no signature: antivirus is the only check you can run.',
+      safetyUnsigned: 'The file is not signed — Windows SmartScreen may warn you. That is not a sign of a virus, but it is not proof of safety either.',
+      safetyArchive: 'The release is a password-protected archive: antivirus cannot see inside until you unpack it.',
+      safetyAdmin: 'The program asks for administrator rights — that gives it broad access to the system.',
+      safetyNoScan: 'The release files were not scanned by antivirus.',
+      safetyNoFiles: 'There are no ready-made files in the releases: there is nothing to download, the code is installed from source or through a package manager.',
+      safetySite: 'This is a website: there is nothing to install, it opens in the browser.',
+      safetyVt: 'Check the downloaded file on VirusTotal — it is free.',
+      safetyVtBtn: 'Open VirusTotal',
+      safetyNotGuarantee: 'This is not a safety guarantee. The decision to run a file is always yours.',
+      userHeader: 'LaunchCheck — pre-download check: {repo}, {score}/100',
+      userIntro: 'This is not a safety guarantee and not a virus scan. Below is what is known about the project and what to do before running it.',
+      gradesUser: { great: 'Try with care', good: 'Check first', meh: 'Many questions', bad: 'Better not run' },
       card: 'Download card',
       badge: 'Download badge',
       again: 'Check again',
@@ -153,6 +238,7 @@
       showLess: 'Collapse',
       copied: 'Copied',
       copiedAll: 'All prompts copied',
+      copiedAllNote: 'All steps copied',
       copyFail: 'The browser refused to copy — select the text manually',
       cardDone: 'Card saved',
       badgeDone: 'Badge saved',
@@ -323,16 +409,41 @@
   /* Checks                                                              */
   /* ------------------------------------------------------------------ */
 
-  var CATS = [
-    { id: 'security', max: 25, color: '#f87171' },
-    { id: 'runnable', max: 20, color: '#60a5fa' },
-    { id: 'quality', max: 15, color: '#a78bfa' },
-    { id: 'repo', max: 15, color: '#6ee7b7' },
-    { id: 'product', max: 15, color: '#fbbf24' },
-    { id: 'trust', max: 10, color: '#38bdf8' }
-  ];
+  var PROFILES = {
+    dev: {
+      id: 'dev',
+      cats: [
+        { id: 'security', max: 25 },
+        { id: 'runnable', max: 20 },
+        { id: 'quality', max: 15 },
+        { id: 'repo', max: 15 },
+        { id: 'product', max: 15 },
+        { id: 'trust', max: 10 }
+      ]
+    },
+    user: {
+      id: 'user',
+      cats: [
+        { id: 'security', max: 28 },
+        { id: 'runnable', max: 15 },
+        { id: 'quality', max: 15 },
+        { id: 'repo', max: 10 },
+        { id: 'product', max: 20 },
+        { id: 'trust', max: 12 }
+      ]
+    }
+  };
+
+  /* Kept for the report card. */
+  var CATS = PROFILES.dev.cats;
 
   var SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+
+  var CODE_RE = /\.(cs|fs|vb|py|js|jsx|ts|tsx|go|rs|c|h|cc|cpp|hpp|java|kt|kts|swift|m|mm|rb|php|lua|pl|sh|ps1|bat|cmd|ahk|dart|ex|exs|clj|scala|nim|zig|sol)$/i;
+  var TEST_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z0-9]+$|_test\.[a-z0-9]+$|Tests?\.cs$/im;
+  var BINARY_ASSET_RE = /\.(exe|msi|msix|dmg|pkg|appimage|deb|rpm|apk|ipa|7z|zip|rar|tar\.gz|tgz)$/i;
+  var MEDIA_RE = /\.(png|jpe?g|gif|webp|avif|bmp|svg|mp3|wav|ogg|flac|mp4|webm|mov|mkv|psd|blend|fbx)$/i;
+  var VISUAL_RE = /\.(png|jpe?g|gif|webp|avif|svg|mp4|webm|mov)$/i;
 
   var SECRET_PATTERNS = [
     { re: /AKIA[0-9A-Z]{16}/g, kind: 'AWS access key' },
@@ -355,7 +466,7 @@
         var value = m[0];
         if (PLACEHOLDER.test(value)) continue;
         hits.push(p.kind);
-        break; // one hit per pattern per file is enough
+        break; /* one hit per pattern per file is enough */
       }
     }
     return hits;
@@ -365,21 +476,567 @@
     return paths.filter(function (p) { return re.test(p); });
   }
 
-  function checkGroup(ctx) {
-    var paths = ctx.paths;
-    var readme = ctx.readme || '';
-    var repo = ctx.repo;
+  function textHas(s, re) { re.lastIndex = 0; return re.test(s || ''); }
+
+  function uniq(arr) {
+    return arr.filter(function (v, i, a) { return a.indexOf(v) === i; });
+  }
+
+  function extOf(p) {
+    var m = /\.([A-Za-z0-9]+)$/.exec(p || '');
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function readmeImages(readme) {
     var out = [];
+    var m;
+    var re = /!\[[^\]]*\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g;
+    while ((m = re.exec(readme))) out.push(m[1]);
+    var re2 = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi;
+    while ((m = re2.exec(readme))) out.push(m[1]);
+    return out.filter(function (u) {
+      return !/(shields\.io|badgen\.net|badge\.fury|travis|codecov|coveralls|appveyor|circleci|discord|npmjs\.com|visitor|hits\.sexy|badge)/i.test(u);
+    });
+  }
+
+  function readmeLangInfo(readme, paths) {
+    var noCode = String(readme || '').replace(/```[\s\S]*?```/g, ' ').replace(/`[^`]*`/g, ' ');
+    var cyr = (noCode.match(/[А-Яа-яЁё]/g) || []).length;
+    var lat = (noCode.match(/[A-Za-z]/g) || []).length;
+    var total = cyr + lat;
+    var pathText = (paths || []).join('\n');
+    var enHeading = /(^|\n)#{1,4}\s*(EN|ENG|English|English version)\s*($|\n)/i.test(noCode) ||
+      /\[(English|EN)\]\([^)]*\)/i.test(noCode);
+    var ruHeading = /(^|\n)#{1,4}\s*(RU|РУС|Русский)\s*($|\n)/i.test(noCode) ||
+      /\[(Русский|RU)\]\([^)]*\)/i.test(noCode);
+    var hasEnFile = /(^|\/)README[._-]?(en|eng|english)\.[A-Za-z0-9]+$/im.test(pathText);
+    var hasRuFile = /(^|\/)README[._-]?(ru|rus|russian|рус)[^/]*$/im.test(pathText);
+    var cyrShare = total ? cyr / total : 0;
+    var latinProse = /[A-Za-z][^\n]{60,}/.test(noCode);
+    var bilingual = enHeading || hasEnFile || (cyrShare > 0.12 && latinProse);
+    return {
+      cyrShare: cyrShare,
+      letters: total,
+      enHeading: enHeading,
+      ruHeading: ruHeading,
+      hasEnFile: hasEnFile,
+      hasRuFile: hasRuFile,
+      bilingual: bilingual,
+      main: cyrShare >= 0.35 ? 'ru' : cyrShare <= 0.12 ? 'en' : 'mixed'
+    };
+  }
+
+  var CLAIM_STOP = {};
+  ('the and for with from that this into your you our their they will can are was were has have had not but all any how what when where which who why its it is of to in on at by as or be a an ' +
+    'это для как что или его она они был была были есть нет все еще уже так тот эта эти при над под без про через свой своя свои ' +
+    'project repo repository app application tool library program программа проект репозиторий приложение утилита').split(/\s+/).forEach(function (w) {
+    if (w) CLAIM_STOP[w] = 1;
+  });
+
+  function scriptShare(text) {
+    var cyr = (String(text || '').match(/[А-Яа-яЁё]/g) || []).length;
+    var lat = (String(text || '').match(/[A-Za-z]/g) || []).length;
+    var total = cyr + lat;
+    if (!total) return 'none';
+    if (cyr / total > 0.4) return 'cyr';
+    if (lat / total > 0.8) return 'lat';
+    return 'mixed';
+  }
+
+  function claimsMatch(repo, readme) {
+    var source = ((repo && repo.description) || '') + ' ' + ((repo && repo.topics) || []).join(' ');
+    var words = uniq((source.toLowerCase().match(/[a-zа-яё0-9][a-zа-яё0-9_.-]{3,}/gi) || []).filter(function (w) {
+      return !CLAIM_STOP[w] && !/^\d+$/.test(w);
+    }));
+    if (words.length < 3) return { ok: true, ratio: 1, checked: words.length, words: [], mismatch: false };
+
+    /* A Russian description next to an English README cannot be compared word by word. */
+    var descScript = scriptShare((repo && repo.description) || '');
+    var readmeScript = scriptShare(readme);
+    if (descScript !== 'none' && readmeScript !== 'none' &&
+      descScript !== 'mixed' && readmeScript !== 'mixed' && descScript !== readmeScript) {
+      return { ok: true, ratio: 1, checked: words.length, words: [], mismatch: true };
+    }
+
+    var hay = String(readme || '').toLowerCase();
+    var found = words.filter(function (w) {
+      var stem = w.length > 5 ? w.slice(0, 5) : w;
+      return hay.indexOf(stem) >= 0;
+    });
+    return {
+      ok: found.length / words.length >= 0.5,
+      ratio: found.length / words.length,
+      checked: words.length,
+      words: words,
+      found: found,
+      mismatch: false
+    };
+  }
+
+  function detectStack(paths, language) {
+    var counts = {};
+    paths.forEach(function (p) {
+      var e = extOf(p);
+      if (!e) return;
+      counts[e] = (counts[e] || 0) + 1;
+    });
+    var best = '';
+    var bestN = 0;
+    Object.keys(counts).forEach(function (e) {
+      if (counts[e] > bestN) { bestN = counts[e]; best = e; }
+    });
+    var map = {
+      cs: 'C# / .NET', fs: 'F# / .NET', vb: 'VB.NET', py: 'Python', js: 'JavaScript', jsx: 'JavaScript',
+      ts: 'TypeScript', tsx: 'TypeScript', go: 'Go', rs: 'Rust', c: 'C', h: 'C', cc: 'C++', cpp: 'C++',
+      hpp: 'C++', java: 'Java', kt: 'Kotlin', kts: 'Kotlin', swift: 'Swift', rb: 'Ruby', php: 'PHP',
+      lua: 'Lua', sh: 'Shell', ps1: 'PowerShell', bat: 'Batch', cmd: 'Batch', ahk: 'AutoHotkey',
+      dart: 'Dart', ex: 'Elixir', exs: 'Elixir', clj: 'Clojure', scala: 'Scala', nim: 'Nim', zig: 'Zig',
+      sol: 'Solidity', vue: 'Vue', svelte: 'Svelte', html: 'HTML'
+    };
+    return map[best] || language || '—';
+  }
+
+  function detectPlatform(pathText, hay, assets, kind) {
+    var os = {};
+    var names = assets.map(function (a) { return a.name; }).join(' ');
+    if (/\.(exe|msi|msix)$/i.test(names) || /\.(csproj|sln|xaml|vcxproj)$/im.test(pathText) || /\bwindows\b|win32|win64|настольн.*windows/i.test(hay)) os.windows = 1;
+    if (/\.(dmg|pkg)$/i.test(names) || /\bmacos\b|\bmac os\b|osx/i.test(hay)) os.macos = 1;
+    if (/\.(appimage|deb|rpm)$/i.test(names) || /\blinux\b|ubuntu|debian|fedora/i.test(hay)) os.linux = 1;
+    if (kind === 'web') return 'web';
+    var keys = Object.keys(os);
+    if (!keys.length) return 'unknown';
+    if (keys.length > 1) return 'cross';
+    return keys[0];
+  }
+
+  function detectKind(ctx, pathText, hay, assets, platform, codeFiles) {
+    var mdCount = ctx.paths.filter(function (p) { return /\.(md|markdown|rst|txt)$/i.test(p); }).length;
+    if (!codeFiles.length && mdCount >= 3) return 'docs';
+
+    var desktopMarkers = /(^|\/)([^/]+\.(csproj|sln|xaml|vcxproj|pbxproj)|tauri\.conf\.json|electron-builder\.(json|ya?ml))$/im.test(pathText);
+    var desktopWords = /\b(desktop|windows app|macos app|gui app|tray app|native app)\b|настольн|десктоп/i.test(hay);
+    var gameWords = /\b(game|unity|godot|unreal|minecraft mod|game mod)\b|игр[аыу]|мод для игр/i.test(hay);
+    var libWords = /\b(library|component library|sdk|framework|ui kit|design system|package)\b|библиотек|компонент|фреймворк|пакет/i.test(hay);
+    var webMarkers = /(^|\/)(index\.html?|vite\.config\.[a-z]+|next\.config\.[a-z]+|nuxt\.config\.[a-z]+|svelte\.config\.[a-z]+|astro\.config\.[a-z]+|angular\.json|gatsby-config\.[a-z]+|remix\.config\.[a-z]+)$/im.test(pathText);
+    var cliWords = /\b(cli|command[- ]line|terminal tool|console app)\b|консольн|командн(ая|ой) строк/i.test(hay);
+    var cliMarkers = /(^|\/)(cmd\/[^/]+\/main\.go|src\/main\.rs|main\.go|__main__\.py)$/im.test(pathText) || /\bconsole_scripts\b/.test(ctx.packageText || '');
+    var botWords = /\b(bot|telegram bot|discord bot)\b|бот\b/i.test(hay);
+
+    if (gameWords) return 'game';
+    if (desktopMarkers || desktopWords || (assets.length && platform !== 'web' && platform !== 'unknown')) return 'desktop';
+    if (libWords && !cliWords) return 'library';
+    if (webMarkers) return 'web';
+    if (cliWords || cliMarkers) return 'cli';
+    if (botWords) return 'bot';
+    return 'other';
+  }
+
+  function detectProfile(ctx) {
+    var paths = ctx.paths || [];
+    var pathText = ctx.pathText || (ctx.pathText = paths.join('\n'));
+    var readme = ctx.readme || '';
+    var repo = ctx.repo || {};
+    var desc = repo.description || '';
+    var topics = repo.topics || [];
+    var declaredText = (desc + ' ' + topics.join(' ') + ' ' + readme).toLowerCase();
+    var hay = (desc + ' ' + topics.join(' ') + ' ' + readme.slice(0, 1500)).toLowerCase();
+    var ageDays = repo.created_at ? Math.max(0, Math.floor((Date.now() - new Date(repo.created_at).getTime()) / 86400000)) : 0;
+
+    var assets = [];
+    (ctx.releases || []).forEach(function (r) {
+      (r.assets || []).forEach(function (a) {
+        assets.push({ name: a.name || '', size: a.size || 0, downloads: a.download_count || 0, tag: r.tag_name || '', url: a.browser_download_url || '' });
+      });
+    });
+    var binaryAssets = assets.filter(function (a) { return BINARY_ASSET_RE.test(a.name) && !/source|src/i.test(a.name); });
+    var codeFiles = paths.filter(function (p) { return CODE_RE.test(p); });
+    var testFiles = paths.filter(function (p) { return TEST_RE.test(p); });
+    var workflows = paths.filter(function (p) { return /^\.github\/workflows\/[^/]+\.ya?ml$/i.test(p); });
+    var docsPages = paths.filter(function (p) { return /(^|\/)docs\/.+\.(md|mdx|html|txt|rst)$/i.test(p); });
+    var depManifests = pathsMatching(paths, /(^|\/)(package\.json|requirements\.txt|pyproject\.toml|Pipfile|setup\.py|Gemfile|Cargo\.toml|go\.mod|composer\.json|pom\.xml|build\.gradle(\.kts)?|[^/]+\.(csproj|fsproj|vbproj))$/i);
+    /* Managers that normally produce a lockfile. Plain pip / requirements.txt is
+       already a version list, so it must not be punished for having no lock. */
+    var lockableManifests = pathsMatching(paths, /(^|\/)(package\.json|Cargo\.toml|go\.mod|Gemfile|composer\.json|Pipfile|pom\.xml|build\.gradle(\.kts)?|packages\.config\.json)$/i);
+    var stack = detectStack(paths, repo.language);
+    var platform = detectPlatform(pathText, hay, binaryAssets, '');
+    var kind = detectKind(ctx, pathText, hay, binaryAssets, platform, codeFiles);
+    if (kind === 'web') platform = 'web';
+
+    var images = readmeImages(readme);
+    var repoVisuals = paths.filter(function (p) {
+      return VISUAL_RE.test(p) && /(^|\/)(docs\/screenshots?|screenshots?|assets\/|images?\/)/i.test(p);
+    });
+    var visualNames = {};
+    images.forEach(function (u) {
+      if (VISUAL_RE.test(u.split('?')[0])) visualNames[u.split('?')[0].split('/').pop().toLowerCase()] = 1;
+    });
+    repoVisuals.forEach(function (p) { visualNames[p.split('/').pop().toLowerCase()] = 1; });
+    var visuals = Object.keys(visualNames).length;
+    var demoLink = repo.homepage || '';
+    if (!demoLink) {
+      var links = readme.match(/https?:\/\/[^\s)>"']+/g) || [];
+      demoLink = links.filter(function (u) {
+        return /(pages\.dev|netlify\.app|vercel\.app|github\.io|surge\.sh|render\.com|itch\.io|youtube\.com|youtu\.be|vimeo\.com|streamable\.com|demo\.)/i.test(u);
+      })[0] || '';
+    }
+
+    var lang = readmeLangInfo(readme, paths);
+    var risk = scanRisk(ctx.sources || [], declaredText);
+    var claims = claimsMatch(repo, readme);
+    var testHint = testFiles.length > 0;
+    var toyHay = (desc + ' ' + topics.join(' ') + ' ' + readme.slice(0, 900)).toLowerCase();
+    var toyWords = /(prank|joke|toy|meme|for fun|just for fun|experiment|playground|demo app|шутк|прикол|пранк|мем|игрушк|эксперимент|ради смеха)/i;
+    var isToy = toyWords.test(toyHay);
+    var isSmallNew = paths.length <= 25 && ageDays < 14 && !testHint;
+    var lenient = isToy || isSmallNew;
+
+    var checksums = /\b(sha-?256|sha-?512|checksums?|sigstore|minisign|cosign|gpg|pgp)\b/i.test(readme + '\n' + (ctx.releaseBodies || ''));
+    var securityMd = paths.some(function (p) { return /(^|\/)(SECURITY|SECURITY-POLICY)\.md$/i.test(p); });
+    var contact = /(mailto:|contact|связ[а-я]*|support|поддержк|обсужден|discussions?)/i.test(readme) ||
+      paths.some(function (p) { return /(^|\/)(SECURITY|SUPPORT)\.md$/i.test(p); });
+
+    var safety = {
+      stop: /(emergency|how to (close|stop|exit|quit)|аварийн|как (закрыть|остановить|выйти))/i.test(readme),
+      undo: /(restore|uninstall|remove|revert|восстанов|удал|откат|деинсталл)/i.test(readme),
+      warn: /(warning|caution|responsible|antivirus|false positive|smartscreen|unsafe|осторожн|ответственн|антивирус|ложн|ненадёжн)/i.test(readme),
+      admin: /(administrator|admin rights|run as admin|uac|администратор|права администратора)/i.test(readme),
+      archive: binaryAssets.some(function (a) { return /\.(7z|zip|rar)$/i.test(a.name); }) && /(password|пароль)/i.test(readme),
+      unsigned: /(unsigned|not signed|smart screen|smartscreen|не подписан|без подписи)/i.test(readme),
+      network: risk.network
+    };
+    safety.hits = [safety.stop, safety.undo, safety.warn].filter(Boolean).length;
+
+    var installCommand = /\b(npm (i|install)|pnpm add|yarn add|pip install|poetry add|cargo add|go get|gem install|composer require|dotnet add package|brew install|winget install|choco install)\b/i.test(readme);
+    var distribution = kind === 'web' ? 'site' : binaryAssets.length ? 'binary' : kind === 'library' ? 'package' : 'source';
+
+    return {
+      kind: kind,
+      stack: stack,
+      platform: platform,
+      distribution: distribution,
+      ageDays: ageDays,
+      isToy: isToy,
+      isSmallNew: isSmallNew,
+      lenient: lenient,
+      isNew: ageDays < 30,
+      hasSource: codeFiles.length > 0,
+      sourceCount: (ctx.sources || []).length,
+      codeFiles: codeFiles.length,
+      hasBinaries: binaryAssets.length > 0,
+      binaryAssets: binaryAssets,
+      allAssets: assets,
+      downloads: assets.reduce(function (n, a) { return n + a.downloads; }, 0),
+      hasChecksums: checksums,
+      hasSecurityMd: securityMd,
+      hasContact: contact,
+      hasReleaseNotes: (ctx.releases || []).some(function (r) { return (r.body || '').trim().length >= 40; }),
+      demoLink: demoLink,
+      visuals: visuals,
+      hasScreenshots: visuals > 0,
+      hasInstall: /(##+\s*(install|installation|setup|quick\s?start|usage|getting started|download|установка|запуск|быстрый старт|скач|использование))|(\bnpm (i|install|run)\b|\bpip install\b|\bdotnet run\b|\bgo run\b|\bcargo run\b|\bdocker (compose )?up\b|\bmake (run|install|dev)\b|\bpython -m\b|\bdownload\b|\bскача)/i.test(readme),
+      installCommand: installCommand,
+      docsPages: docsPages.length,
+      hasTemplates: /(^|\/)\.github\/ISSUE_TEMPLATE\//im.test(pathText),
+      depManifests: depManifests.length,
+      lockable: lockableManifests.length > 0,
+      workflows: workflows.length,
+      testFiles: testFiles.length,
+      lang: lang,
+      claims: claims,
+      risk: risk,
+      safety: safety,
+      hasAdmin: safety.admin,
+      hasArchive: safety.archive,
+      isUnsigned: safety.unsigned,
+      topics: topics,
+      description: desc
+    };
+  }
+
+  function ageText(days) {
+    if (state.lang === 'ru') {
+      var n = days % 100;
+      var w = 'дней';
+      if (n % 10 === 1 && n !== 11) w = 'день';
+      else if (n % 10 >= 2 && n % 10 <= 4 && (n < 12 || n > 14)) w = 'дня';
+      return days + ' ' + w;
+    }
+    if (days === 0) return 'today';
+    return days + (days === 1 ? ' day' : ' days');
+  }
+
+  function filesText(n) {
+    if (state.lang === 'ru') {
+      var m10 = n % 10, m100 = n % 100, w = 'файлов';
+      if (m10 === 1 && m100 !== 11) w = 'файл';
+      else if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) w = 'файла';
+      return n + ' ' + w;
+    }
+    return n + (n === 1 ? ' file' : ' files');
+  }
+
+  function visualsText(n) {
+    if (state.lang === 'ru') {
+      var m10 = n % 10, m100 = n % 100, w = 'скриншотов';
+      if (m10 === 1 && m100 !== 11) w = 'скриншот';
+      else if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) w = 'скриншота';
+      return n + ' ' + w + ' или видео';
+    }
+    return n + (n === 1 ? ' screenshot' : ' screenshots') + ' or video';
+  }
+
+  var RISK_RULES = [
+    {
+      id: 'network', level: 'high',
+      label: M('сетевые запросы', 'network requests'),
+      re: /\b(WebClient|HttpClient|WebRequest|DownloadString|DownloadFile|TcpClient|UdpClient|Dns\.GetHost|requests\.(get|post)|urllib\.request|http\.client|fetch\s*\(|axios\.|Invoke-WebRequest|Invoke-RestMethod|curl\s+-|wget\s+)/i
+    },
+    {
+      id: 'persistence', level: 'high',
+      label: M('автозапуск', 'autostart'),
+      re: /(CurrentVersion\\+Run|schtasks\s+\/create|\bsc\s+create\b|LaunchAgents|LaunchDaemons|systemd\/system|\.bashrc|\.profile\b)/i
+    },
+    {
+      id: 'injection', level: 'high',
+      label: M('внедрение в другие процессы', 'injecting into other processes'),
+      re: /\b(CreateRemoteThread|WriteProcessMemory|VirtualAllocEx|SetThreadContext|NtUnmapViewOfSection|ptrace\s*\(|LD_PRELOAD)\b/i
+    },
+    {
+      id: 'obfuscation', level: 'high',
+      label: M('закодированный или обфусцированный код', 'encoded or obfuscated code'),
+      re: /(FromBase64String|base64\s+-d|-[Ee]nc(odedCommand)?\b|Invoke-Expression|eval\s*\(|atob\s*\(|powershell.*-enc)/i
+    },
+    {
+      id: 'masquerade', level: 'high',
+      label: M('маскировка под системный процесс', 'masquerading as a system process'),
+      re: /(WUDFHost|svchost\.exe|lsass\.exe|csrss\.exe|winlogon\.exe|LOCALAPPDATA[^\n]{0,40}\.exe|AppData[^\n]{0,40}\.exe)/i
+    },
+    {
+      id: 'power', level: 'high',
+      label: M('выключение или перезагрузка системы', 'system shutdown or reboot'),
+      re: /\bshutdown\b[^\n]{0,30}\/[rsf]\b|\b(ExitWindowsEx|InitiateSystemShutdown|bcdedit|vssadmin|poweroff|reboot)\b/i
+    },
+    {
+      id: 'keyboard', level: 'medium',
+      label: M('перехват клавиатуры', 'keyboard hooks'),
+      re: /\b(SetWindowsHookEx|GetAsyncKeyState|BlockInput|keybd_event|GetKeyboardState|pynput|keyboard\.Listener)\b/i
+    },
+    {
+      id: 'registry', level: 'medium',
+      label: M('изменение реестра или политик', 'registry or policy changes'),
+      re: /\b(Registry\.(CurrentUser|LocalMachine|ClassesRoot)|RegSetValue|HKEY_(CURRENT_USER|LOCAL_MACHINE)|reg\s+add)\b/i
+    },
+    {
+      id: 'shell', level: 'medium',
+      label: M('управление проводником Windows', 'control of Windows Explorer'),
+      re: /(explorer\.exe|taskkill[^\n]{0,40}explorer|restart[^\n]{0,40}explorer)/i
+    },
+    {
+      id: 'process', level: 'medium',
+      label: M('запуск других программ', 'launching other programs'),
+      re: /\b(Process\.Start|ShellExecute|WinExec|CreateProcess|subprocess\.(Popen|run|call)|child_process\.(exec|spawn)|Runtime\.getRuntime\(\)\.exec)\b/i
+    },
+    {
+      id: 'files', level: 'medium',
+      label: M('удаление файлов', 'file deletion'),
+      re: /\b(File\.Delete|Directory\.Delete|Remove-Item|shutil\.rmtree|os\.remove|os\.unlink|fs\.rm|deleteFile)\b/i
+    }
+  ];
+
+  var DECLARED_RULES = {
+    network: /\b(api|server|cloud|sync\w*|upload\w*|download\w*|telemetry|webhook|socket\w*|online|telegram|discord|http|network\w*)\b|сетев|сервер|облак|синхрониз|загруж|выгруз|онлайн|телеграм|дискорд/i,
+    persistence: /(autostart|auto-start|startup|run key|автозагруз|автозапуск|при запуске)/i,
+    injection: /(inject|hook|cheat|mod loader|инъекц|хук|чит|мод)/i,
+    obfuscation: /(obfuscat|encoded|base64|обфускац|закодирован)/i,
+    masquerade: /(WUDFHost|LOCALAPPDATA|AppData|disguis|masquerad|маскир|скрыт[^\n]{0,30}процесс|имя процесс)/i,
+    power: /(reboot|restart|shutdown|power off|перезагруз|выключ|заверш[^\n]{0,20}работ)/i,
+    keyboard: /(keyboard|hotkey|block[^\n]{0,20}key|клавиатур|горяч|заблокир[^\n]{0,20}клавиш|перехват)/i,
+    registry: /(registry|policies|policy|реестр|политик|ctrl\+alt\+del|task manager|диспетчер)/i,
+    shell: /(fullscreen|full-screen|topmost|taskbar|explorer|полноэкран|панел[^\n]{0,20}задач|проводник)/i,
+    process: /(launch|start|spawn|relaunch|запуск|перезапуск|распаков)/i,
+    files: /(delete|remove|wipe|cleanup|uninstall|удал|очист|деинсталл)/i
+  };
+
+  function stripComments(text) {
+    return String(text || '')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/gm, '$1 ')
+      .replace(/^[ \t]*#[^\n]*/gm, ' ');
+  }
+
+  function scanRisk(sources, declaredText) {
+    var all = [];
+    var declared = [];
+    var undeclaredHigh = [];
+    var undeclaredMedium = [];
+    var network = false;
+    var declaredHay = String(declaredText || '');
+
+    RISK_RULES.forEach(function (rule) {
+      var files = [];
+      (sources || []).forEach(function (s) {
+        var text = stripComments(s.text || '');
+        rule.re.lastIndex = 0;
+        if (rule.re.test(text)) files.push(s.path);
+      });
+      if (!files.length) return;
+      var item = {
+        id: rule.id,
+        level: rule.level,
+        label: rule.label,
+        files: uniq(files)
+      };
+      var claimRe = DECLARED_RULES[rule.id];
+      item.declared = !!(claimRe && claimRe.test(declaredHay));
+      all.push(item);
+      if (item.declared) declared.push(item);
+      else if (rule.level === 'high') undeclaredHigh.push(item);
+      else undeclaredMedium.push(item);
+      if (rule.id === 'network') network = true;
+    });
+
+    return {
+      all: all,
+      declared: declared,
+      undeclaredHigh: undeclaredHigh,
+      undeclaredMedium: undeclaredMedium,
+      network: network,
+      scanned: (sources || []).length
+    };
+  }
+
+  function kindLabel(kind) {
+    var table = {
+      desktop: M('настольная программа', 'desktop app'),
+      web: M('веб-приложение', 'web app'),
+      cli: M('консольная программа', 'command-line tool'),
+      library: M('библиотека', 'library'),
+      game: M('игра', 'game'),
+      bot: M('бот', 'bot'),
+      docs: M('документация', 'documentation'),
+      other: M('проект', 'project')
+    };
+    return table[kind] || table.other;
+  }
+
+  function platformLabel(platform) {
+    var table = {
+      windows: M('Windows', 'Windows'),
+      macos: M('macOS', 'macOS'),
+      linux: M('Linux', 'Linux'),
+      cross: M('несколько систем', 'multiple systems'),
+      web: M('браузер', 'browser'),
+      unknown: M('система не указана', 'system not stated')
+    };
+    return table[platform] || table.unknown;
+  }
+
+  function profileFacts(p, ctx) {
+    var facts = [];
+    var typeParts = [pick(kindLabel(p.kind))];
+    if (p.stack && p.stack !== '—') typeParts.push(p.stack);
+    if (p.platform && p.platform !== 'web' && p.platform !== 'unknown') typeParts.push(pick(platformLabel(p.platform)));
+    facts.push({ k: M('Что это', 'What it is'), v: typeParts.join(' · ') });
+
+    if (p.distribution === 'binary') {
+      var names = p.binaryAssets.slice(0, 2).map(function (a) { return a.name; }).join(', ');
+      facts.push({
+        k: M('Как получить', 'How to get it'),
+        v: M('готовые файлы в релизах: ' + (names || 'есть'), 'ready-made files in releases: ' + (names || 'yes'))
+      });
+    } else if (p.distribution === 'package') {
+      facts.push({ k: M('Как получить', 'How to get it'), v: M('через пакетный менеджер', 'through a package manager') });
+    } else if (p.distribution === 'site') {
+      facts.push({ k: M('Как получить', 'How to get it'), v: M('открывается в браузере', 'opens in a browser') });
+    } else {
+      facts.push({ k: M('Как получить', 'How to get it'), v: M('только исходники, сборка вручную', 'source only, build it yourself') });
+    }
+
+    facts.push({
+      k: M('Исходный код', 'Source code'),
+      v: p.hasSource
+        ? M('открыт, прочитано ' + filesText(p.sourceCount || 0), 'open, ' + filesText(p.sourceCount || 0) + ' read')
+        : M('закрыт или не найден', 'closed or not found')
+    });
+
+    if (p.ageDays >= 0) {
+      var created = ctx.repo && ctx.repo.created_at ? dateStr(ctx.repo.created_at) : '';
+      facts.push({
+        k: M('Возраст', 'Age'),
+        v: M('создан ' + (created || '—') + ' · ' + ageText(p.ageDays), 'created ' + (created || '—') + ' · ' + ageText(p.ageDays))
+      });
+    }
+
+    if (p.hasScreenshots) {
+      facts.push({ k: M('Как выглядит', 'What it looks like'), v: visualsText(p.visuals) });
+    }
+    if (p.hasBinaries && !p.hasChecksums) {
+      facts.push({ k: M('Проверка файлов', 'File verification'), v: M('контрольных сумм нет', 'no checksums') });
+    }
+
+    return facts.slice(0, 5);
+  }
+
+  function scoreChecks(checks, profile) {
+    var cats = {};
+    profile.cats.forEach(function (c) { cats[c.id] = { earned: 0, max: 0 }; });
+    var totalW = 0;
+    var earned = 0;
+
+    checks.forEach(function (ch) {
+      if (ch.skip) return;
+      if (!cats[ch.cat]) cats[ch.cat] = { earned: 0, max: 0 };
+      totalW += ch.points;
+      cats[ch.cat].max += ch.points;
+      if (ch.ok) {
+        earned += ch.points;
+        cats[ch.cat].earned += ch.points;
+      }
+    });
+
+    var order = {};
+    profile.cats.forEach(function (c, i) { order[c.id] = i; });
+    var findings = checks.filter(function (c) { return !c.ok && !c.skip && !c.silent; }).sort(function (a, b) {
+      var d = SEV_ORDER[a.sev] - SEV_ORDER[b.sev];
+      if (d !== 0) return d;
+      var co = (order[a.cat] || 0) - (order[b.cat] || 0);
+      if (co !== 0) return co;
+      return b.points - a.points;
+    });
+    var skipped = checks.filter(function (c) { return c.skip; });
+
+    return {
+      score: totalW ? Math.max(0, Math.min(100, Math.round((earned / totalW) * 100))) : 0,
+      cats: cats,
+      findings: findings,
+      skipped: skipped,
+      total: totalW,
+      earned: earned
+    };
+  }
+
+  function devChecks(ctx, p) {
+    var out = [];
+    var paths = ctx.paths || [];
+    var pathText = ctx.pathText || (ctx.pathText = paths.join('\n'));
+    var readme = ctx.readme || '';
+    var repo = ctx.repo || {};
+    var releaseText = ctx.releaseBodies || '';
+    var toy = p.isToy;
+    var small = p.isSmallNew;
+    var lenient = p.lenient;
+    var w = function (n) { return lenient ? Math.max(1, Math.round(n * 0.5)) : n; };
+    var sev = function (normal, low) { return lenient && low ? low : normal; };
 
     function add(c) { out.push(c); }
 
     /* ---------- security (25) ---------- */
 
-    var envFiles = pathsMatching(paths, /(^|\/)\.env(\.[A-Za-z0-9_-]+)?$/i).filter(function (p) {
-      return !/\.(example|sample|template|dist)$/i.test(p) && !/\.env\.example$/i.test(p);
+    var envFiles = pathsMatching(paths, /(^|\/)\.env(\.[A-Za-z0-9_-]+)?$/i).filter(function (x) {
+      return !/\.(example|sample|template|dist)$/i.test(x);
     });
     add({
-      id: 's_env', cat: 'security', sev: 'critical', points: 8,
+      id: 's_env', cat: 'security', sev: 'critical', points: 7,
       ok: envFiles.length === 0,
       vars: { files: envFiles.slice(0, 4).join(', '), extra: envFiles.length > 4 ? ' +' + (envFiles.length - 4) : '' },
       title: M('Файл .env лежит в репозитории', '.env file is committed'),
@@ -406,9 +1063,9 @@
     });
 
     var keyFiles = pathsMatching(paths, /(^|\/)(id_(rsa|dsa|ecdsa|ed25519)|[^/]+\.(pem|key|p12|pfx|jks|keystore))$/i)
-      .filter(function (p) { return !/\.pub$/i.test(p); });
+      .filter(function (x) { return !/\.pub$/i.test(x); });
     add({
-      id: 's_keys', cat: 'security', sev: 'critical', points: 7,
+      id: 's_keys', cat: 'security', sev: 'critical', points: 5,
       ok: keyFiles.length === 0,
       vars: { files: keyFiles.slice(0, 4).join(', ') },
       title: M('В репозитории приватные ключи', 'Private keys are in the repository'),
@@ -424,14 +1081,15 @@
       )
     });
 
-    var scannedNames = ctx.scanned.map(function (s) { return s.path; });
-    var leaked = ctx.scanned.filter(function (s) { return s.hits.length > 0; });
+    var leaked = (ctx.scanned || []).filter(function (s) { return s.hits && s.hits.length > 0; });
     add({
-      id: 's_secrets', cat: 'security', sev: 'critical', points: 10,
+      id: 's_secrets', cat: 'security', sev: 'critical', points: 8,
+      skip: !(ctx.scanned || []).length,
+      skipReason: M('в проекте не нашлось конфигов или исходников, где обычно лежат секреты', 'no configs or source files that usually hold secrets were found'),
       ok: leaked.length === 0,
       vars: {
         files: leaked.slice(0, 3).map(function (s) { return s.path; }).join(', '),
-        kinds: leaked.reduce(function (acc, s) { return acc.concat(s.hits); }, []).filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 3).join(', ')
+        kinds: uniq(leaked.reduce(function (acc, s) { return acc.concat(s.hits); }, [])).slice(0, 3).join(', ')
       },
       title: M('В конфигах похоже на настоящие секреты', 'Configs look like they contain real secrets'),
       why: M('Найдены строки, похожие на API-ключи, токены или пароли. Значения не показываются и никуда не отправляются — но их нужно считать утёкшими.',
@@ -454,24 +1112,50 @@
       )
     });
 
+    var risky = p.risk.undeclaredHigh;
+    add({
+      id: 's_risk', cat: 'security', sev: 'critical', points: 5,
+      skip: !p.sourceCount,
+      skipReason: M('исходный код не читался — проверить опасные вызовы негде', 'source code was not read, so there is nothing to scan for dangerous calls'),
+      ok: risky.length === 0,
+      vars: {
+        items: risky.map(function (r) { return pick(r.label); }).join(', '),
+        files: uniq(risky.reduce(function (a, r) { return a.concat(r.files); }, [])).slice(0, 3).join(', ')
+      },
+      title: M('В коде есть опасные действия без предупреждения', 'The code does risky things without warning'),
+      why: M('Найдено: {items}. В README об этом не сказано. Это не значит «вирус», но пользователь должен знать до запуска.',
+        'Found: {items}. The README does not mention it. This does not mean “virus”, but a user must know before running it.'),
+      prompt: M(
+        'В репозитории {repo} в файлах {files} найдены потенциально опасные вызовы: {items}, но README о них не предупреждает.\n' +
+        'Сделай одно из двух:\n' +
+        '1) если это не нужно — убери эти вызовы и упрости код;\n' +
+        '2) если это часть задуманного поведения — добавь в README раздел «Что программа делает с системой»: что именно происходит, зачем, как это остановить и как отменить.\n' +
+        'Не скрывай поведение и не добавляй новых опасных вызовов.',
+        'In {repo}, files {files} contain potentially dangerous calls: {items}, but the README does not warn about them.\n' +
+        'Do one of two things:\n' +
+        '1) if they are not needed, remove them and simplify the code;\n' +
+        '2) if they are intentional, add a “What this app does to your system” section to the README: what happens, why, how to stop it and how to undo it.\n' +
+        'Do not hide behaviour and do not add new dangerous calls.'
+      )
+    });
+
     /* ---------- runnable (20) ---------- */
 
-    var runRe = /(##+\s*(install|installation|setup|quick\s?start|usage|getting started|установка|запуск|быстрый старт|использование))|(\bnpm (i|install|run)\b|\bpip install\b|\bdotnet run\b|\bgo run\b|\bcargo run\b|\bdocker (compose )?up\b|\bmake (run|install|dev)\b|\bpython -m\b)/i;
     add({
       id: 'r_docs', cat: 'runnable', sev: 'high', points: 6,
-      ok: runRe.test(readme),
+      ok: p.hasInstall || /(##+\s*(install|installation|setup|quick\s?start|usage|getting started|download|установка|запуск|быстрый старт|скач|использование))|(\bnpm (i|install|run)\b|\bpip install\b|\bdotnet run\b|\bgo run\b|\bcargo run\b|\bdocker (compose )?up\b|\bmake (run|install|dev)\b|\bpython -m\b)/i.test(readme),
       title: M('В README нет «как запустить»', 'README does not say how to run it'),
       why: M('Человек открыл репозиторий и не понял, что делать. Без раздела установки половина посетителей уходит сразу.',
         'Someone opened the repository and could not tell what to do. Without an install section, half the visitors leave immediately.'),
       prompt: M(
         'В README репозитория {repo} нет понятного раздела о запуске. Добавь в начало README раздел «Быстрый старт»: требования (версия языка/рантайма), команды установки зависимостей, команда запуска и ожидаемый результат. ' +
-        'Используй реальные команды проекта, не выдумывай. Если чего-то не хватает для запуска — добавь это и опиши.',
+        'Для настольной программы укажи, откуда скачать готовый файл и как его распаковать. Используй реальные команды проекта, не выдумывай.',
         'The README of {repo} does not explain how to run the project. Add a “Quick start” section near the top: requirements (language/runtime version), dependency install commands, the run command, and what the user should see. ' +
-        'Use the real commands of this project, do not invent them. If something needed to run is missing, add it and document it.'
+        'For a desktop app, say where to download the ready-made file and how to unpack it. Use the real commands of this project, do not invent them.'
       )
     });
 
-    var manifestFiles = pathsMatching(paths, /(^|\/)(package\.json|[^/]+\.csproj|[^/]+\.sln|pyproject\.toml|requirements\.txt|Cargo\.toml|go\.mod|pom\.xml|build\.gradle(\.kts)?|Gemfile|composer\.json|index\.html)$/i);
+    var manifestFiles = pathsMatching(paths, /(^|\/)(package\.json|[^/]+\.(csproj|fsproj|vbproj|sln|vcxproj|proj)|pyproject\.toml|setup\.py|requirements\.txt|Pipfile|Cargo\.toml|go\.mod|pom\.xml|build\.gradle(\.kts)?|settings\.gradle(\.kts)?|Gemfile|composer\.json|mix\.exs|pubspec\.yaml|Package\.swift|CMakeLists\.txt|Makefile|meson\.build|build\.(ps1|sh|bat|cmd)|Justfile|Taskfile\.ya?ml|configure|index\.html)$/i);
     add({
       id: 'r_manifest', cat: 'runnable', sev: 'medium', points: 4,
       ok: manifestFiles.length > 0,
@@ -480,19 +1164,19 @@
       why: M('Не видно, из чего собирается проект и какие у него зависимости. Агенту и человеку придётся угадывать.',
         'There is no clear build definition or dependency list. Both an agent and a human would have to guess.'),
       prompt: M(
-        'В репозитории {repo} нет файла манифеста (package.json, pyproject.toml, .csproj, Cargo.toml, go.mod или аналога). ' +
+        'В репозитории {repo} нет файла манифеста (package.json, pyproject.toml, .csproj, Cargo.toml, go.mod, build.ps1 или аналога). ' +
         'Добавь манифест для реального стека проекта: имя, версия, зависимости, скрипты сборки и запуска. Ничего не выдумывай: посмотри, какие импорты используются в коде.',
-        'The repository {repo} has no manifest (package.json, pyproject.toml, .csproj, Cargo.toml, go.mod or similar). ' +
+        'The repository {repo} has no manifest (package.json, pyproject.toml, .csproj, Cargo.toml, go.mod, build.ps1 or similar). ' +
         'Add a manifest for the actual stack: name, version, dependencies, build and run scripts. Do not invent anything — look at the imports used in the code.'
       )
     });
 
     var lockFiles = pathsMatching(paths, /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Pipfile\.lock|packages\.lock\.json|Cargo\.lock|go\.sum|composer\.lock|Gemfile\.lock)$/i);
-    var depManifests = pathsMatching(paths, /(^|\/)(package\.json|requirements\.txt|pyproject\.toml|Pipfile|setup\.py|Gemfile|Cargo\.toml|go\.mod|composer\.json|pom\.xml|build\.gradle(\.kts)?|[^/]+\.(csproj|fsproj|vbproj))$/i);
     add({
       id: 'r_lock', cat: 'runnable', sev: 'medium', points: 3,
-      /* nothing to pin without a package manager: dependency-free projects are not at risk */
-      ok: lockFiles.length > 0 || depManifests.length === 0,
+      skip: !p.lockable,
+      skipReason: M('в проекте нет менеджера зависимостей с lockfile — фиксировать версии нечем', 'the project has no dependency manager that uses a lockfile, so there is nothing to pin'),
+      ok: lockFiles.length > 0,
       title: M('Нет lockfile', 'No lockfile'),
       why: M('Без lockfile у каждого будут разные версии зависимостей, и «у меня работает» превращается в лотерею.',
         'Without a lockfile everyone gets different dependency versions, and “works on my machine” becomes a lottery.'),
@@ -504,61 +1188,91 @@
       )
     });
 
-    var entryRe = /(^|\/)(src\/|main\.[a-z0-9]+$|Program\.cs$|App\.(xaml|jsx|tsx|vue|svelte)$|index\.(js|ts|html)$|app\.py$|manage\.py$|cmd\/)/im;
+    var namedEntry = paths.filter(function (x) {
+      return /(^|\/)(Program|Main|Launcher|App|Application|Index|Cli|Server|Bot)\.[A-Za-z0-9]+$/i.test(x) || /(^|\/)main\.[A-Za-z0-9]+$/i.test(x);
+    })[0];
+    var compiled = (ctx.buildText || '').match(/[A-Za-z0-9_./-]+\.(?:cs|c|cc|cpp|go|rs|py|js|ts|java|kt|swift)\b/g) || [];
+    var rootSources = paths.filter(function (x) { return x.indexOf('/') === -1 && CODE_RE.test(x); });
+    var entryOk = !!namedEntry || !!compiled.length || rootSources.length === 1 || /(^|\/)src\//.test(pathText);
     add({
       id: 'r_entry', cat: 'runnable', sev: 'medium', points: 4,
-      ok: entryRe.test(paths.join('\n')),
+      ok: entryOk,
+      vars: { entry: namedEntry || compiled[0] || (rootSources[0] || 'src/') },
       title: M('Непонятно, откуда стартует проект', 'Unclear entry point'),
       why: M('Нет очевидной точки входа: папки src, main-файла или индекса. Это первое, что ищут в чужом коде.',
         'There is no obvious entry point: no src folder, main file or index. It is the first thing people look for in unfamiliar code.'),
       prompt: M(
-        'В репозитории {repo} не видно точки входа. Приведи структуру к понятной: исходники в src/ (или эквивалент для стека), один явный вход (main.*, Program.cs, app.py, index.html), ' +
-        'и добавь в README строку «Точка входа: путь». Перемещай файлы аккуратно, обнови импорты и проверь, что проект собирается.',
-        'The repository {repo} has no obvious entry point. Make the structure clear: sources in src/ (or the stack equivalent), one explicit entry (main.*, Program.cs, app.py, index.html), ' +
-        'and add a “Entry point: path” line to the README. Move files carefully, update imports, and verify the project still builds.'
+        'В репозитории {repo} не видно точки входа. Сейчас сборка выглядит так, что непонятно, какой файл запускается первым. ' +
+        'Сделай структуру явной: один вход (main.*, Program.cs, app.py, index.html или файл, который компилирует сборка), и добавь в README строку «Точка входа: {entry}». ' +
+        'Перемещай файлы аккуратно, обнови импорты и проверь, что проект собирается.',
+        'The repository {repo} has no obvious entry point. Make the structure explicit: one entry (main.*, Program.cs, app.py, index.html or the file your build compiles), and add an “Entry point: {entry}” line to the README. ' +
+        'Move files carefully, update imports, and verify the project still builds.'
       )
     });
 
     var workflows = pathsMatching(paths, /^\.github\/workflows\/[^/]+\.ya?ml$/i);
+    var buildHint = ctx.buildPath
+      ? M('В проекте уже есть ' + ctx.buildPath + ' — вызови его из workflow, чтобы не дублировать сборку.',
+        'The project already has ' + ctx.buildPath + ' — call it from the workflow instead of duplicating the build.')
+      : M('', '');
     add({
-      id: 'r_ci', cat: 'runnable', sev: 'high', points: 3,
+      id: 'r_ci', cat: 'runnable', sev: sev('high', 'medium'), points: w(3),
       ok: workflows.length > 0,
-      vars: {},
+      vars: { branch: repo.default_branch || 'main', buildHint: buildHint },
       title: M('Нет CI', 'No CI'),
-      why: M('Никто автоматически не проверяет, что проект собирается. Первый же сломанный коммит заметят пользователи.',
-        'Nothing automatically checks that the project builds. The first broken commit will be noticed by users.'),
+      why: toy
+        ? M('Никто автоматически не проверяет, что проект собирается. Для маленькой шуточной программы это не срочно, но перед релизом полезно.',
+          'Nothing automatically checks that the project builds. Not urgent for a small joke app, but useful before a release.')
+        : small
+          ? M('Проект новый и небольшой, поэтому CI можно добавить позже. Но перед первым релизом он ловит поломки, которые иначе заметят пользователи.',
+            'The project is new and small, so CI can wait. But before the first release it catches breakage that users would otherwise find.')
+          : M('Никто автоматически не проверяет, что проект собирается. Первый же сломанный коммит заметят пользователи.',
+            'Nothing automatically checks that the project builds. The first broken commit will be noticed by users.'),
       prompt: M(
         'В репозитории {repo} нет GitHub Actions. Добавь .github/workflows/ci.yml: checkout, установка нужной версии рантайма, установка зависимостей, сборка и тесты. ' +
-        'Триггеры: push в {branch} и pull_request. Сделай минимальный рабочий файл для реального стека проекта и проверь, что он проходит.',
+        'Триггеры: push в {branch} и pull_request. {buildHint} Сделай минимальный рабочий файл для реального стека проекта и проверь, что он проходит.',
         'The repository {repo} has no GitHub Actions. Add .github/workflows/ci.yml: checkout, set up the required runtime version, install dependencies, build and test. ' +
-        'Triggers: push to {branch} and pull_request. Keep it minimal and real for this stack, and make sure it passes.'
+        'Triggers: push to {branch} and pull_request. {buildHint} Keep it minimal and real for this stack, and make sure it passes.'
       )
     });
 
     /* ---------- quality (15) ---------- */
 
-    var testRe = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z0-9]+$|_test\.[a-z0-9]+$|Tests?\.cs$/im;
+    var testFiles = paths.filter(function (x) { return TEST_RE.test(x); });
     add({
-      id: 'q_tests', cat: 'quality', sev: 'high', points: 6,
-      ok: testRe.test(paths.join('\n')),
+      id: 'q_tests', cat: 'quality', sev: sev('high', 'medium'), points: w(6),
+      ok: testFiles.length > 0,
+      vars: { files: (ctx.sources || []).slice(0, 3).map(function (s) { return s.path; }).join(', ') || 'основные функции' },
       title: M('Нет тестов', 'No tests'),
-      why: M('Без тестов любая правка — это надежда. Агенту особенно нужны тесты: это единственный способ проверить, что он ничего не сломал.',
-        'Without tests every change is a hope. Agents especially need tests: it is the only way to verify nothing broke.'),
+      why: toy
+        ? M('Без тестов любая правка — это надежда. Для маленькой утилиты это не первое, что нужно, но тесты на главный сценарий окупятся быстро.',
+          'Without tests every change is a hope. Not the first thing a small tool needs, but tests for the main flow pay off quickly.')
+        : small
+          ? M('Проект новый: тесты на главный сценарий важнее полного покрытия. Начни с 3–5 проверок того, что точно должно работать.',
+            'The project is new: tests for the main flow matter more than full coverage. Start with 3–5 checks of what must work.')
+          : M('Без тестов любая правка — это надежда. Агенту особенно нужны тесты: это единственный способ проверить, что он ничего не сломал.',
+            'Without tests every change is a hope. Agents especially need tests: it is the only way to verify nothing broke.'),
       prompt: M(
-        'В репозитории {repo} нет тестов. Добавь минимальный тестовый набор для основного поведения: 3–5 тестов на самые важные функции или сценарии. ' +
-        'Используй стандартный фреймворк стека. Добавь команду запуска тестов в README и в CI. Не меняй поведение приложения.',
-        'The repository {repo} has no tests. Add a minimal suite for the core behaviour: 3–5 tests for the most important functions or flows. ' +
-        'Use the standard framework for the stack. Add the test command to the README and CI. Do not change application behaviour.'
+        'В репозитории {repo} нет тестов. Добавь минимальный набор для основного поведения (3–5 тестов) в файлах {files}. ' +
+        'Используй стандартный фреймворк стека и не меняй поведение приложения. Добавь команду запуска тестов в README и в CI.',
+        'The repository {repo} has no tests. Add a minimal suite for the core behaviour (3–5 tests) covering {files}. ' +
+        'Use the standard framework for the stack and do not change application behaviour. Add the test command to the README and CI.'
       )
     });
 
-    var lintRe = /(^|\/)(\.eslintrc(\.[a-z]+)?|eslint\.config\.[a-z]+|\.prettierrc(\.[a-z]+)?|ruff\.toml|\.flake8|\.editorconfig|\.stylecop\.json|\.golangci\.ya?ml|clippy\.toml|detekt\.ya?ml|\.rubocop\.yml)$/im;
+    var lintRe = /(^|\/)(\.eslintrc(\.[a-z]+)?|eslint\.config\.[a-z]+|\.prettierrc(\.[a-z]+)?|prettier\.config\.[a-z]+|ruff\.toml|\.flake8|\.editorconfig|\.stylecop\.json|stylecop\.json|\.golangci\.ya?ml|clippy\.toml|detekt\.ya?ml|\.rubocop\.yml|\.swiftlint\.yml)$/im;
     add({
-      id: 'q_lint', cat: 'quality', sev: 'low', points: 4,
-      ok: lintRe.test(paths.join('\n')),
+      id: 'q_lint', cat: 'quality', sev: 'low', points: w(4),
+      ok: lintRe.test(pathText),
       title: M('Нет линтера и форматтера', 'No linter or formatter'),
-      why: M('Стиль кода будет плавать от правки к правке, а глупые ошибки никто не поймает автоматически.',
-        'Code style will drift with every change, and silly mistakes will not be caught automatically.'),
+      why: toy
+        ? M('Стиль кода будет плавать от правки к правке. Для одноразовой утилиты это необязательно — достаточно .editorconfig.',
+          'Code style will drift with every change. For a one-off tool this is optional — a .editorconfig is enough.')
+        : small
+          ? M('Пока проект маленький, достаточно .editorconfig и форматтера. Линтер стоит добавить, когда файлов станет больше.',
+            'While the project is small, a .editorconfig and a formatter are enough. Add a linter when the codebase grows.')
+          : M('Стиль кода будет плавать от правки к правке, а глупые ошибки никто не поймает автоматически.',
+            'Code style will drift with every change, and silly mistakes will not be caught automatically.'),
       prompt: M(
         'В репозитории {repo} нет настроек линтера и форматтера. Добавь конфиг для стека проекта (ESLint + Prettier, Ruff, dotnet format/StyleCop, gofmt + golangci-lint и т.п.), ' +
         'команды lint и format в README и шаг линтера в CI. Не переформатируй весь код одним коммитом — только настройки и минимальные правки.',
@@ -570,9 +1284,9 @@
     var ciTestRe = /\b(npm (run )?test|yarn test|pnpm test|node --test|pytest|python -m pytest|dotnet test|go test|cargo test|mvn test|gradlew? test|phpunit|jest|vitest|ctest)\b/i;
     add({
       id: 'q_citest', cat: 'quality', sev: 'medium', points: 3,
-      /* without any workflow there is nothing that could skip the tests - r_ci already reports that */
-      ok: workflows.length === 0 || ciTestRe.test(ctx.workflowText || ''),
-      vars: {},
+      skip: workflows.length === 0,
+      skipReason: M('CI нет — правило «тесты в CI» не применяется, за это отвечает отдельная проверка', 'there is no CI, so “tests in CI” does not apply; a separate check covers that'),
+      ok: ciTestRe.test(ctx.workflowText || ''),
       title: M('CI не запускает тесты', 'CI does not run tests'),
       why: M('Сборка проверяется, а тесты — нет. Красные тесты спокойно доедут до пользователей.',
         'The build is checked but tests are not. Failing tests can ship to users unnoticed.'),
@@ -584,21 +1298,23 @@
       )
     });
 
-    var big = ctx.blobs.filter(function (b) { return b.size > 10 * 1024 * 1024; }).sort(function (a, b) { return b.size - a.size; });
+    var big = (ctx.blobs || []).filter(function (b) {
+      var limit = MEDIA_RE.test(b.path) ? 20 : 10;
+      return b.size > limit * 1024 * 1024;
+    }).sort(function (a, b) { return b.size - a.size; });
     add({
       id: 'q_big', cat: 'quality', sev: 'medium', points: 2,
       ok: big.length === 0,
       vars: {
-        files: big.slice(0, 3).map(function (b) { return b.path + ' (' + Math.round(b.size / 1048576) + ' МБ)'; }).join(', '),
-        count: big.length
+        files: big.slice(0, 3).map(function (b) { return b.path + ' (' + Math.round(b.size / 1048576) + ' МБ)'; }).join(', ')
       },
       title: M('В репозитории очень большие файлы', 'Very large files in the repository'),
       why: M('Клонирование станет медленным, а git будет хранить каждую версию такого файла навсегда.',
         'Cloning becomes slow and git stores every version of such a file forever.'),
       prompt: M(
-        'В репозитории {repo} есть файлы больше 10 МБ: {files}. Убери их из git (git rm --cached), добавь в .gitignore, ' +
+        'В репозитории {repo} есть очень большие файлы: {files}. Убери их из git (git rm --cached), добавь в .gitignore, ' +
         'а сами файлы выложи в GitHub Releases или подключи Git LFS. Историю при необходимости почисти через git filter-repo. Не ломай ссылки в README.',
-        'The repository {repo} has files over 10 MB: {files}. Remove them from git (git rm --cached), add them to .gitignore, ' +
+        'The repository {repo} has very large files: {files}. Remove them from git (git rm --cached), add them to .gitignore, ' +
         'and ship them via GitHub Releases or Git LFS. Clean history with git filter-repo if needed. Do not break links in the README.'
       )
     });
@@ -623,7 +1339,7 @@
     var topics = repo.topics || [];
     var hasTopics = topics.length >= 3;
     var readmeLong = readme.trim().length >= 800;
-    var hasImage = /!\[[^\]]*\]\([^)]+\)|<img\s/i.test(readme);
+    var hasImage = p.visuals > 0;
     var presentationPoints = (hasDesc ? 2 : 0) + (hasTopics ? 2 : 0) + (readmeLong ? 3 : 0) + (hasImage ? 1 : 0);
     var presentParts = [
       !hasDesc ? M('описание репозитория (1–2 предложения о том, что это и для кого)', 'repository description (1–2 sentences about what it is and who it is for)') : null,
@@ -651,13 +1367,11 @@
       )
     });
 
-    var cyr = (readme.match(/[А-Яа-яЁё]/g) || []).length;
-    var letters = (readme.match(/[A-Za-zА-Яа-яЁё]/g) || []).length;
-    var cyrShare = letters > 40 ? cyr / letters : 0;
     add({
       id: 'p_en', cat: 'repo', sev: 'medium', points: 2,
-      ok: readme.length > 0 && cyrShare < 0.15,
-      silent: readme.length === 0,
+      skip: p.lang.letters < 200,
+      skipReason: M('README слишком короткий, чтобы судить о языке', 'the README is too short to judge its language'),
+      ok: p.lang.bilingual || p.lang.cyrShare < 0.15,
       title: M('README не на английском', 'README is not in English'),
       why: M('Английский README открывает проект миру. Русскую версию можно оставить второй — это нормальная практика.',
         'An English README opens the project to the world. Keeping a Russian version second is a normal practice.'),
@@ -671,27 +1385,39 @@
 
     /* ---------- product (15) ---------- */
 
+    var demoOk = !!p.demoLink || (p.kind !== 'web' && p.hasScreenshots);
     add({
-      id: 'd_home', cat: 'product', sev: 'medium', points: 5,
-      ok: !!repo.homepage,
-      vars: { url: repo.homepage || '' },
-      title: M('Нет ссылки на демо', 'No demo link'),
-      why: M('Попробовать проект нельзя без установки. Демо повышает доверие и конверсию в звёзды сильнее любого текста.',
-        'There is no way to try the project without installing it. A demo builds trust and converts to stars better than any text.'),
-      prompt: M(
-        'У проекта {repo} нет ссылки на демо. Сделай минимальное демо (GitHub Pages, Netlify или Cloudflare Pages — бесплатные варианты), ' +
-        'положи ссылку в поле Website репозитория и первой строкой в README, добавь бейдж Demo. Если демо объективно невозможно (десктопное приложение), ' +
-        'приложи GIF или короткое видео и напиши, почему демо нет.',
-        'The project {repo} has no demo link. Create a minimal demo (GitHub Pages, Netlify or Cloudflare Pages are free), ' +
-        'put the link in the repository Website field and on the first line of the README, add a Demo badge. If a demo is genuinely impossible (desktop app), ' +
-        'attach a GIF or short video and explain why.'
-      )
+      id: 'd_home', cat: 'product', sev: 'medium', points: 6,
+      skip: p.kind === 'library',
+      skipReason: M('библиотеке не нужно живое демо — достаточно примера использования в README', 'a library does not need a live demo; a usage example in the README is enough'),
+      ok: demoOk,
+      vars: { url: p.demoLink || '' },
+      title: M('Нечем посмотреть продукт', 'There is nothing to look at'),
+      why: p.kind === 'web'
+        ? M('Попробовать проект нельзя без установки. Живое демо повышает доверие и конверсию в звёзды сильнее любого текста.',
+          'There is no way to try the project without installing it. A live demo builds trust and converts to stars better than any text.')
+        : M('Скачивать и устанавливать программу, чтобы просто посмотреть, готов не каждый. Скриншоты или короткое видео показывают продукт заранее.',
+          'Not everyone will download and install an app just to look at it. Screenshots or a short video show the product first.'),
+      prompt: p.kind === 'web'
+        ? M(
+          'У проекта {repo} нет ссылки на демо. Сделай минимальное демо (GitHub Pages, Netlify или Cloudflare Pages — бесплатные варианты), ' +
+          'положи ссылку в поле Website репозитория и первой строкой в README, добавь бейдж Demo.',
+          'The project {repo} has no demo link. Create a minimal demo (GitHub Pages, Netlify or Cloudflare Pages are free), ' +
+          'put the link in the repository Website field and on the first line of the README, add a Demo badge.'
+        )
+        : M(
+          'У проекта {repo} нет ни ссылки на демо, ни скриншотов. Для настольной программы живое демо не требуется: ' +
+          'добавь в README 2–3 скриншота основного экрана или короткий GIF/видео, подпиши, что на них происходит, и положи файлы в docs/ или assets/ (до 2 МБ каждый).',
+          'The project {repo} has no demo link and no screenshots. A desktop app does not need a live demo: ' +
+          'add 2–3 screenshots of the main screen or a short GIF/video to the README, caption what happens, and put the files in docs/ or assets/ (under 2 MB each).'
+        )
     });
 
-    var hasChangelog = /(^|\/)(CHANGELOG|CHANGES|HISTORY)(\.md|\.txt)?$/im.test(paths.join('\n'));
     add({
       id: 'd_releases', cat: 'product', sev: 'medium', points: 3,
-      ok: ctx.releases > 0,
+      skip: p.kind === 'library',
+      skipReason: M('библиотеки распространяются через пакетный менеджер, GitHub Releases им не обязательны', 'libraries ship through a package manager; GitHub Releases are optional for them'),
+      ok: (ctx.releases || []).length > 0,
       title: M('Нет релизов', 'No releases'),
       why: M('Скачать нечего: нет тега и версии. Релиз — это точка, где проект можно взять и попробовать.',
         'There is nothing to download: no tag and no version. A release is the point where the project can be picked up and tried.'),
@@ -703,12 +1429,19 @@
       )
     });
 
+    var hasChangelog = /(^|\/)(CHANGELOG|CHANGES|HISTORY)(\.md|\.txt)?$/im.test(pathText);
     add({
-      id: 'd_changelog', cat: 'product', sev: 'low', points: 2,
+      id: 'd_changelog', cat: 'product', sev: 'low', points: w(2),
       ok: hasChangelog,
       title: M('Нет CHANGELOG', 'No changelog'),
-      why: M('Пользователь не понимает, что изменилось между версиями, и не может решить, обновляться ли.',
-        'Users cannot tell what changed between versions, so they cannot decide whether to update.'),
+      why: toy
+        ? M('Пользователь не понимает, что изменилось между версиями. Для шуточной программы это мелочь, но для релизов полезно.',
+          'Users cannot tell what changed between versions. A small thing for a joke app, but useful for releases.')
+        : small
+          ? M('Пока проект новый, список изменений короткий. Начни CHANGELOG с первого релиза — потом будет поздно восстанавливать историю.',
+            'While the project is new, the change list is short. Start the changelog at the first release — later it is hard to reconstruct.')
+          : M('Пользователь не понимает, что изменилось между версиями, и не может решить, обновляться ли.',
+            'Users cannot tell what changed between versions, so they cannot decide whether to update.'),
       prompt: M(
         'Добавь в {repo} файл CHANGELOG.md в формате Keep a Changelog: раздел Unreleased и первый релиз с датой. ' +
         'Заполни по реальным коммитам, без выдуманных пунктов. Добавь ссылку на CHANGELOG в README.',
@@ -717,72 +1450,72 @@
       )
     });
 
-    var hasTemplates = /(^|\/)\.github\/ISSUE_TEMPLATE\//im.test(paths.join('\n'));
-    var hasDocs = /(^|\/)docs\//im.test(paths.join('\n'));
+    var missingDocParts = [];
+    if (!p.hasTemplates) missingDocParts.push(M('шаблоны issue', 'issue templates'));
+    if (!p.docsPages) missingDocParts.push(M('страницы документации', 'documentation pages'));
     add({
-      id: 'd_docs', cat: 'product', sev: 'low', points: 4,
-      ok: hasTemplates && hasDocs,
+      id: 'd_docs', cat: 'product', sev: 'low', points: w(4),
+      ok: missingDocParts.length === 0,
       vars: {
-        parts: function () {
-          return [
-            !hasTemplates ? M('шаблоны issue', 'issue templates') : null,
-            !hasDocs ? M('папка docs с документацией', 'a docs folder') : null
-          ].filter(Boolean).map(pick).join(', ');
-        }
+        parts: function () { return missingDocParts.map(pick).join(', '); }
       },
-      title: M('Нет шаблонов issue и документации', 'No issue templates or docs'),
+      title: missingDocParts.length === 2
+        ? M('Нет шаблонов issue и документации', 'No issue templates or docs')
+        : (p.hasTemplates ? M('Нет страниц документации', 'No documentation pages') : M('Нет шаблонов issue', 'No issue templates')),
       why: M('Обратная связь приходит в хаотичном виде, а документации нет ни для пользователей, ни для агента. Не хватает: {parts}.',
         'Feedback arrives in random shapes and there is no documentation for users or agents. Missing: {parts}.'),
       prompt: M(
-        'Добавь в {repo} шаблоны issue (bug report и feature request) в .github/ISSUE_TEMPLATE и папку docs с 3 короткими страницами: установка, использование, архитектура. ' +
-        'Пиши по реальному коду. Ссылки на docs добавь в README.',
-        'Add issue templates (bug report and feature request) under .github/ISSUE_TEMPLATE and a docs folder with three short pages: install, usage, architecture. ' +
-        'Base them on the real code. Link the docs from the README.'
-      )
-    });
-
-    add({
-      id: 'd_shot', cat: 'product', sev: 'low', points: 1,
-      ok: /(screenshot|скриншот|demo|демо|gif)/i.test(readme) && hasImage,
-      silent: readme.length === 0,
-      title: M('В README нет скриншота или GIF', 'No screenshot or GIF in the README'),
-      why: M('Текстовое описание не показывает продукт. Один скриншот часто убеждает лучше десяти абзацев.',
-        'A text description does not show the product. One screenshot often convinces better than ten paragraphs.'),
-      prompt: M(
-        'Добавь в README {repo} скриншот или GIF основного экрана и подпись к нему. Файл положи в docs/ или assets/, размер — до 2 МБ, ' +
-        'чтобы страница быстро открывалась. Если это консольное приложение — вставь текстовый блок с примером вывода.',
-        'Add a screenshot or GIF of the main screen to the README of {repo}, with a caption. Put the file in docs/ or assets/, keep it under 2 MB ' +
-        'so the page loads fast. If it is a CLI, include a code block with example output instead.'
+        'Добавь в {repo} недостающее: {parts}. Шаблоны issue — bug report и feature request в .github/ISSUE_TEMPLATE. ' +
+        'Страницы документации — 3 коротких файла в docs/: установка, использование, архитектура. Пиши по реальному коду и добавь ссылки в README.',
+        'Add the missing parts to {repo}: {parts}. Issue templates are bug report and feature request under .github/ISSUE_TEMPLATE. ' +
+        'Documentation pages are three short files in docs/: install, usage, architecture. Base them on the real code and link them from the README.'
       )
     });
 
     /* ---------- trust (10) ---------- */
 
-    var hasSecurity = /(^|\/)(SECURITY\.md|\.github\/SECURITY\.md)$/im.test(paths.join('\n')) ||
-      /(sha-?256|checksum|контрольн|подпис|signed)/i.test(readme);
+    var trustOk = p.distribution === 'binary' ? p.hasChecksums : (p.hasSecurityMd || p.hasChecksums);
     add({
-      id: 't_trust', cat: 'trust', sev: 'low', points: 4,
-      ok: hasSecurity,
-      title: M('Нет следов проверяемости', 'No signs of verifiability'),
-      why: M('Нет ни контрольных сумм, ни политики безопасности, ни подписи бинарников. Пользователю остаётся верить на слово.',
-        'No checksums, no security policy, no signed binaries. Users can only take your word for it.'),
-      prompt: M(
-        'Добавь в {repo} проверяемость: раздел «Безопасность» в README с SHA-256 для распространяемых файлов, SECURITY.md с тем, как сообщить об уязвимости, ' +
-        'и подпись бинарников (если они есть). Для релизов приложи файл с контрольными суммами.',
-        'Make {repo} verifiable: a “Security” section in the README with SHA-256 for distributed files, a SECURITY.md explaining how to report a vulnerability, ' +
-        'and signed binaries if there are any. Attach a checksums file to each release.'
-      )
+      id: 't_trust', cat: 'trust', sev: p.distribution === 'binary' ? 'medium' : 'low', points: 4,
+      ok: trustOk,
+      title: p.distribution === 'binary'
+        ? M('Нет контрольных сумм для скачиваемых файлов', 'No checksums for downloadable files')
+        : M('Нет политики безопасности', 'No security policy'),
+      why: p.distribution === 'binary'
+        ? M('Пользователь не может проверить, что скачал именно твой файл. Подпись или SHA-256 решают это.',
+          'Users cannot verify they downloaded your file. A signature or SHA-256 solves this.')
+        : M('Непонятно, куда сообщать об уязвимости. Без SECURITY.md такие сообщения теряются.',
+          'It is unclear where to report a vulnerability. Without SECURITY.md such reports get lost.'),
+      prompt: p.distribution === 'binary'
+        ? M(
+          'Добавь в релизы {repo} файл с контрольными суммами (SHA-256) для каждого скачиваемого файла и раздел «Проверка файла» в README с командой проверки. ' +
+          'Если возможно — подпиши сборку (signtool или GPG) и опиши, как проверить подпись. Не меняй код приложения.',
+          'Add a checksums file (SHA-256) for every downloadable file to the releases of {repo}, and a “Verify the file” section to the README with the check command. ' +
+          'If possible, sign the build (signtool or GPG) and document how to verify it. Do not change the app code.'
+        )
+        : M(
+          'Добавь в {repo} SECURITY.md: как сообщить об уязвимости, какие версии поддерживаются и чего ждать по срокам. ' +
+          'Добавь короткую ссылку в README. Не публикуй личные данные, которые не хочешь показывать.',
+          'Add SECURITY.md to {repo}: how to report a vulnerability, which versions are supported, and what response to expect. ' +
+          'Add a short link in the README. Do not publish personal data you do not want to share.'
+        )
     });
 
-    var hasContrib = /(^|\/)(CONTRIBUTING\.md|\.github\/CONTRIBUTING\.md)$/im.test(paths.join('\n'));
-    var hasCoc = /(^|\/)(CODE_OF_CONDUCT\.md|\.github\/CODE_OF_CONDUCT\.md)$/im.test(paths.join('\n'));
+    var hasContrib = /(^|\/)(CONTRIBUTING\.md|\.github\/CONTRIBUTING\.md)$/im.test(pathText);
+    var hasCoc = /(^|\/)(CODE_OF_CONDUCT\.md|\.github\/CODE_OF_CONDUCT\.md)$/im.test(pathText);
     add({
-      id: 't_contrib', cat: 'trust', sev: 'low', points: 3,
+      id: 't_contrib', cat: 'trust', sev: 'low', points: w(3),
       ok: hasContrib || hasCoc,
-      vars: { parts: [ !hasContrib ? 'CONTRIBUTING.md' : null, !hasCoc ? 'CODE_OF_CONDUCT.md' : null ].filter(Boolean).join(', ') },
+      vars: { parts: [!hasContrib ? 'CONTRIBUTING.md' : null, !hasCoc ? 'CODE_OF_CONDUCT.md' : null].filter(Boolean).join(', ') },
       title: M('Нет правил для участников', 'No contributor guidelines'),
-      why: M('Непонятно, как предложить правку и какие правила действуют. Без этого первый же PR превращается в переписку.',
-        'It is unclear how to propose a change or what the rules are. Without it the first PR turns into a long thread.'),
+      why: toy
+        ? M('Непонятно, как предложить правку. Для проекта одного автора это необязательно, но первый PR без правил превращается в переписку.',
+          'It is unclear how to propose a change. Optional for a one-author project, but the first PR without rules turns into a long thread.')
+        : small
+          ? M('Пока проект ведёт один автор, правила можно не писать. Они понадобятся, когда появится первый внешний участник.',
+            'While one author runs the project, written rules can wait. You will need them when the first outside contributor appears.')
+          : M('Непонятно, как предложить правку и какие правила действуют. Без этого первый же PR превращается в переписку.',
+            'It is unclear how to propose a change or what the rules are. Without it the first PR turns into a long thread.'),
       prompt: M(
         'Добавь в {repo} файлы {parts}: как собрать проект, как запускать тесты, стиль кода, как оформить PR; и краткий кодекс поведения. ' +
         'Добавь ссылки в README. Не меняй код.',
@@ -791,37 +1524,342 @@
       )
     });
 
-    var hasContact = /(mailto:|contact|связ[а-я]*|support|поддержк)/i.test(readme) ||
-      !!(repo.owner && repo.owner.html_url && /(^|\/)(SECURITY\.md|SUPPORT\.md)$/im.test(paths.join('\n')));
     add({
       id: 't_contact', cat: 'trust', sev: 'low', points: 3,
-      ok: hasContact,
+      ok: !!repo.has_issues || p.hasContact,
       title: M('Непонятно, как связаться', 'No way to get in touch'),
-      why: M('Нет контакта для вопросов и проблем. Люди либо пишут в issue не по теме, либо уходят.',
-        'There is no contact for questions and problems. People either open off-topic issues or leave.'),
+      why: M('Issues выключены, а другого контакта в README нет. Люди либо пишут не туда, либо уходят.',
+        'Issues are disabled and there is no other contact in the README. People either write to the wrong place or leave.'),
       prompt: M(
-        'Добавь в README {repo} раздел «Контакты»: почта или ссылка на обсуждения/чат, и куда писать про безопасность. ' +
-        'Если есть GitHub Discussions — включи и дай ссылку. Не публикуй личные данные, которые не хочешь показывать.',
-        'Add a “Contact” section to the README of {repo}: an email or a link to discussions/chat, and where to report security issues. ' +
-        'If GitHub Discussions fits, enable it and link it. Do not publish personal data you do not want to share.'
+        'В {repo} выключены Issues и нет контакта. Включи GitHub Issues или добавь в README раздел «Контакты»: почта или ссылка на обсуждения/чат, и куда писать про безопасность. ' +
+        'Не публикуй личные данные, которые не хочешь показывать.',
+        'Issues are disabled in {repo} and there is no contact. Enable GitHub Issues or add a “Contact” section to the README: an email or a link to discussions/chat, and where to report security issues. ' +
+        'Do not publish personal data you do not want to share.'
       )
     });
 
     return out;
   }
 
+  function userChecks(ctx, p) {
+    var out = [];
+    var readme = ctx.readme || '';
+    var repo = ctx.repo || {};
+    var paths = ctx.paths || [];
+
+    function add(c) { out.push(c); }
+
+    /* ---------- security (28) — «можно ли качать» ---------- */
+
+    add({
+      id: 'u_source', cat: 'security', sev: 'high', points: 8,
+      skip: !p.hasSource && !p.hasBinaries,
+      skipReason: M('это не программа, а документация — проверять скачивание нечего', 'this is documentation, not a program, so there is nothing to download'),
+      ok: p.hasSource,
+      title: M('Проверить код нельзя', 'The code cannot be checked'),
+      why: M('В репозитории только готовые файлы. Что внутри, можно узнать только антивирусом — а он часто ошибается на новых программах.',
+        'The repository only has ready-made files. What is inside can only be judged by antivirus — and it often gets new programs wrong.'),
+      action: M('Скачай файл и проверь его на virustotal.com. Если автор не показывает исходники, доверяй программе меньше — особенно если она просит права администратора.',
+        'Download the file and check it on virustotal.com. If the author does not show the source, trust the program less — especially if it asks for administrator rights.')
+    });
+
+    add({
+      id: 'u_risk_high', cat: 'security', sev: 'critical', points: 8,
+      skip: !p.sourceCount,
+      skipReason: M('исходный код не читался — проверить опасные действия негде', 'source code was not read, so there is nothing to scan for dangerous actions'),
+      ok: p.risk.undeclaredHigh.length === 0,
+      vars: {
+        items: p.risk.undeclaredHigh.map(function (r) { return pick(r.label); }).join(', '),
+        files: uniq(p.risk.undeclaredHigh.reduce(function (a, r) { return a.concat(r.files); }, [])).slice(0, 3).join(', ')
+      },
+      title: M('В коде есть опасные действия без предупреждения', 'The code does dangerous things without warning'),
+      why: M('Найдено: {items}. В README об этом не сказано. Это не значит «вирус», но ты должен знать до запуска.',
+        'Found: {items}. The README does not mention it. This does not mean “virus”, but you must know before running it.'),
+      action: M('Не запускай сразу. Проверь файл на VirusTotal и запусти его в Windows Sandbox или на отдельном компьютере. Напиши автору вопрос: зачем программе {items}?',
+        'Do not run it yet. Check the file on VirusTotal and run it in Windows Sandbox or on a separate machine. Ask the author why the program needs {items}.')
+    });
+
+    add({
+      id: 'u_risk_med', cat: 'security', sev: 'medium', points: 4,
+      skip: !p.sourceCount,
+      skipReason: M('исходный код не читался — проверить опасные действия негде', 'source code was not read, so there is nothing to scan for dangerous actions'),
+      ok: p.risk.undeclaredMedium.length === 0,
+      vars: {
+        items: p.risk.undeclaredMedium.map(function (r) { return pick(r.label); }).join(', '),
+        files: uniq(p.risk.undeclaredMedium.reduce(function (a, r) { return a.concat(r.files); }, [])).slice(0, 3).join(', ')
+      },
+      title: M('В коде есть действия, о которых не сказано', 'The code does things the README does not mention'),
+      why: M('Найдено: {items}. Само по себе это не вирус, но хорошая программа предупреждает о таком заранее.',
+        'Found: {items}. Not a virus by itself, but a good program warns about this in advance.'),
+      action: M('Проверь файл на VirusTotal. Если программа просит права администратора — запускай только в Sandbox или на компьютере, который не жалко.',
+        'Check the file on VirusTotal. If the program asks for administrator rights, run it only in a sandbox or on a machine you do not mind risking.')
+    });
+
+    add({
+      id: 'u_checksums', cat: 'security', sev: 'medium', points: 8,
+      skip: !p.hasBinaries,
+      skipReason: M('в релизах нет готовых файлов — проверять контрольные суммы нечего', 'there are no ready-made files in the releases, so there are no checksums to verify'),
+      ok: p.hasChecksums,
+      title: M('Нет контрольных сумм или подписи', 'No checksums or signature'),
+      why: M('Ты не можешь проверить, что скачал именно тот файл, который собрал автор. Подпись и SHA-256 — единственный способ это сделать.',
+        'You cannot verify that you downloaded the exact file the author built. A signature and SHA-256 are the only way to check.'),
+      action: M('После скачивания сравни SHA-256 с суммой на странице релиза: `certutil -hashfile <файл> SHA256` (Windows) или `shasum -a 256 <файл>` (macOS/Linux). Если суммы нет — попроси автора её добавить.',
+        'After downloading, compare the SHA-256 with the checksum on the release page: `certutil -hashfile <file> SHA256` (Windows) or `shasum -a 256 <file>` (macOS/Linux). If there is no checksum, ask the author to add one.')
+    });
+
+    /* ---------- runnable (15) ---------- */
+
+    add({
+      id: 'u_install', cat: 'runnable', sev: 'high', points: 5,
+      ok: p.hasInstall || p.installCommand,
+      title: M('Непонятно, как установить программу', 'It is unclear how to install it'),
+      why: M('В README нет простой инструкции: откуда скачать, как распаковать, что нажать.',
+        'The README has no simple instructions: where to download, how to unpack, what to click.'),
+      action: M('Не запускай наугад. Найди на странице релиза файл для своей системы и прочитай README до конца. Если инструкции нет — попроси её у автора.',
+        'Do not run it blindly. Find the file for your system on the release page and read the README to the end. If there are no instructions, ask the author.')
+    });
+
+    add({
+      id: 'u_assets', cat: 'runnable', sev: 'high', points: 5,
+      ok: p.hasBinaries || !!p.demoLink || (p.kind === 'library' && p.installCommand),
+      title: M('Скачивать нечего', 'There is nothing to download'),
+      why: M('В релизах нет готового файла, а собрать из исходников может не каждый.',
+        'The releases have no ready-made file, and not everyone can build from source.'),
+      action: M('Попроси автора выложить готовую сборку. Если её нет, этот проект только для разработчиков — не трать время на установку.',
+        'Ask the author to publish a ready-made build. If there is none, this project is for developers only — do not waste time installing it.')
+    });
+
+    add({
+      id: 'u_requirements', cat: 'runnable', sev: 'medium', points: 5,
+      ok: p.kind === 'web'
+        ? !!p.demoLink
+        : /(windows|macos|mac os|linux|ubuntu|debian|android|ios|\.net|node(\.js)?|python|java|browser|requires|requirements|требован|нужен|нужна|версия)/i.test(readme),
+      title: M('Не указаны требования', 'Requirements are not stated'),
+      why: M('Непонятно, какая нужна система и что установить заранее. Программа может просто не запуститься.',
+        'It is unclear which system is required and what to install first. The program may simply not start.'),
+      action: M('Проверь, что у тебя подходящая версия Windows/macOS/Linux и нужный рантайм (.NET, Node.js, Python). Если не уверен — спроси в Issues.',
+        'Check that you have a supported version of Windows/macOS/Linux and the required runtime (.NET, Node.js, Python). If unsure, ask in Issues.')
+    });
+
+    /* ---------- quality (15) ---------- */
+
+    add({
+      id: 'u_visual', cat: 'quality', sev: 'medium', points: 6,
+      ok: p.hasScreenshots,
+      title: M('Нет скриншотов или видео', 'No screenshots or video'),
+      why: M('Ты не видишь, как программа выглядит и работает, до запуска.',
+        'You cannot see how the program looks or works before running it.'),
+      action: M('Не запускай вслепую. Попроси скриншот или посмотри видео. Если их нет — это плохой знак, особенно для новой программы.',
+        'Do not run it blindly. Ask for a screenshot or watch a video. If there are none, that is a bad sign, especially for a new program.')
+    });
+
+    add({
+      id: 'u_feedback', cat: 'quality', sev: 'medium', points: 4,
+      skip: repo.has_issues && !repo.open_issues_count && p.ageDays < 30,
+      skipReason: M('проект слишком новый, отзывов пока нет — судить не по чему', 'the project is too new and has no feedback yet, so there is nothing to judge'),
+      ok: !!repo.has_issues || !!repo.has_discussions || p.hasContact,
+      title: M('Негде оставить отзыв', 'There is no place to leave feedback'),
+      why: M('Issues и Discussions выключены: о проблеме нельзя сообщить публично, а другие пользователи не увидят ответ.',
+        'Issues and Discussions are disabled: a problem cannot be reported publicly, and other users will not see the answer.'),
+      action: M('Если программа не работает, связаться с автором будет сложно. Учти это и не запускай её на важном компьютере.',
+        'If the program does not work, contacting the author will be hard. Keep that in mind and do not run it on an important machine.')
+    });
+
+    add({
+      id: 'u_maintained', cat: 'quality', sev: 'high', points: 5,
+      ok: (function () {
+        if (!repo.pushed_at) return false;
+        var days = Math.floor((Date.now() - new Date(repo.pushed_at).getTime()) / 86400000);
+        return days <= 180;
+      })(),
+      vars: { date: dateStr(repo.pushed_at) },
+      title: M('Проект давно не обновлялся', 'The project has not been updated for a long time'),
+      why: M('Последнее изменение — {date}. Ошибки и дыры в безопасности могли остаться без исправлений.',
+        'The last change was {date}. Bugs and security holes may have been left unfixed.'),
+      action: M('Проверь Issues: возможно, о проблеме уже писали. Не запускай старую сборку без проверки на VirusTotal.',
+        'Check Issues: someone may have reported the problem already. Do not run an old build without checking it on VirusTotal.')
+    });
+
+    /* ---------- repository (10) ---------- */
+
+    add({
+      id: 'u_license', cat: 'repo', sev: 'medium', points: 4,
+      ok: !!repo.license,
+      title: M('Нет лицензии', 'No license'),
+      why: M('Формально автор не разрешил использовать программу. Для скачивания это юридический риск, а не технический.',
+        'Formally the author has not allowed anyone to use the program. For downloading this is a legal risk, not a technical one.'),
+      action: M('Прочитай условия в README. Если лицензии нет, использовать программу можно только на свой риск.',
+        'Read the terms in the README. If there is no license, you can use the program only at your own risk.')
+    });
+
+    add({
+      id: 'u_readme', cat: 'repo', sev: 'medium', points: 4,
+      ok: !!(p.description && p.description.trim().length >= 20) && readme.trim().length >= 600,
+      title: M('Непонятно, что это за программа', 'It is unclear what this program is'),
+      why: M('README короткий или не объясняет, для кого он и что делает. Приходится догадываться по файлам.',
+        'The README is short or does not explain who it is for and what it does. You have to guess from the files.'),
+      action: M('Прочитай описание и отзывы. Если всё равно непонятно — не запускай: скорее всего, автор сам ещё не решил, для кого это.',
+        'Read the description and feedback. If it is still unclear, do not run it: most likely the author has not decided who it is for.')
+    });
+
+    add({
+      id: 'u_users', cat: 'repo', sev: 'low', points: 2,
+      ok: (repo.stargazers_count || 0) >= 5 || (repo.forks_count || 0) > 0 || p.downloads > 0,
+      vars: { downloads: p.downloads, stars: repo.stargazers_count || 0 },
+      title: M('Программой почти никто не пользуется', 'Almost nobody uses this program'),
+      why: M('Нет звёзд и скачиваний: нет опыта других людей, на который можно опереться.',
+        'No stars and no downloads: there is no experience of other people to rely on.'),
+      action: M('Это не приговор для нового проекта, но проверь файлы особенно внимательно: запусти в Sandbox и посмотри отчёт VirusTotal.',
+        'This is not a verdict on a new project, but check the files especially carefully: run it in a sandbox and read the VirusTotal report.')
+    });
+
+    /* ---------- product (20) — «насколько хорош в заявленном» ---------- */
+
+    add({
+      id: 'u_claims', cat: 'product', sev: 'medium', points: 6,
+      skip: p.claims.checked < 3 || p.claims.mismatch,
+      skipReason: p.claims.mismatch
+        ? M('описание и README на разных языках — сверить формулировки дословно нельзя', 'the description and the README are in different languages, so the wording cannot be compared directly')
+        : M('в описании слишком мало слов, чтобы сверить обещания с README', 'the description has too few words to compare its claims with the README'),
+      ok: p.claims.ok,
+      vars: {
+        missing: p.claims.words.filter(function (w) { return p.claims.found.indexOf(w) < 0; }).slice(0, 4).join(', ')
+      },
+      title: M('README не подтверждает обещания', 'The README does not back up the claims'),
+      why: M('В описании заявлено одно, а в README не хватает деталей: {missing}. Непонятно, что ты получишь.',
+        'The description claims one thing, but the README lacks details: {missing}. It is unclear what you will get.'),
+      action: M('Сверь список возможностей с описанием. Если чего-то не хватает — спроси автора до скачивания, а не после.',
+        'Compare the feature list with the description. If something is missing, ask the author before downloading, not after.')
+    });
+
+    add({
+      id: 'u_features', cat: 'product', sev: 'low', points: 4,
+      ok: (readme.match(/^\s*[-*]\s+\S/gm) || []).length >= 5 || readme.length >= 1500,
+      title: M('Возможности описаны поверхностно', 'The features are described vaguely'),
+      why: M('Нет списка функций или примеров: сложно понять, что программа умеет и чего в ней нет.',
+        'There is no feature list or examples: it is hard to tell what the program can and cannot do.'),
+      action: M('Посмотри скриншоты и раздел возможностей. Если их нет — попроси автора описать подробнее и не жди многого.',
+        'Look at the screenshots and the features section. If there are none, ask the author for details and keep your expectations low.')
+    });
+
+    add({
+      id: 'u_release_notes', cat: 'product', sev: 'low', points: 3,
+      skip: !(ctx.releases || []).length,
+      skipReason: M('релизов нет — рассказывать об изменениях нечего', 'there are no releases, so there are no changes to describe'),
+      ok: p.hasReleaseNotes,
+      title: M('Нет описания изменений', 'No release notes'),
+      why: M('Непонятно, что нового в версии и что исправлено. Приходится верить на слово.',
+        'It is unclear what is new in this version and what was fixed. You have to take it on faith.'),
+      action: M('Перед обновлением прочитай заметки к релизу. Если их нет, узнай у автора, что изменилось, и проверь новую версию заново.',
+        'Read the release notes before updating. If there are none, ask the author what changed and check the new version again.')
+    });
+
+    add({
+      id: 'u_platform', cat: 'product', sev: 'medium', points: 3,
+      ok: p.kind === 'web' ? !!p.demoLink : (p.kind === 'library' ? p.installCommand : p.platform !== 'unknown'),
+      title: M('Неясно, для какой системы файл', 'It is unclear which system the file is for'),
+      why: M('В релизах нет файлов с понятными названиями для Windows, macOS или Linux.',
+        'The releases have no clearly named files for Windows, macOS or Linux.'),
+      action: M('Проверь расширение: .exe/.msi — Windows, .dmg — macOS, .AppImage/.deb — Linux. Не запускай файл не для своей системы.',
+        'Check the extension: .exe/.msi is Windows, .dmg is macOS, .AppImage/.deb is Linux. Do not run a file made for another system.')
+    });
+
+    add({
+      id: 'u_safety', cat: 'product', sev: p.hasAdmin || p.risk.declared.length ? 'high' : 'medium', points: 4,
+      skip: p.kind === 'library' || p.kind === 'web' || p.kind === 'docs',
+      skipReason: M('этот проект ничего не устанавливает на компьютер — предупреждать о побочных эффектах не о чем', 'this project installs nothing on your computer, so there are no side effects to warn about'),
+      ok: p.safety.hits >= 2,
+      title: M('Нет предупреждений о побочных эффектах', 'No warnings about side effects'),
+      why: M('Не сказано, что программа делает с системой, как её остановить и как убрать последствия.',
+        'It does not say what the program does to the system, how to stop it, or how to undo the changes.'),
+      action: M('До запуска выясни, как закрыть программу и восстановить изменения. Если этого нет в README — не запускай.',
+        'Before running, find out how to close the program and undo changes. If the README does not say, do not run it.')
+    });
+
+    /* ---------- trust (12) ---------- */
+
+    add({
+      id: 'u_policy', cat: 'trust', sev: 'medium', points: 4,
+      ok: p.hasSecurityMd || /(report[^\n]{0,40}(vulnerab|security)|сообщ[^\n]{0,40}(уязвим|безопасн))/i.test(readme),
+      title: M('Не сказано, куда сообщать о проблемах безопасности', 'No security contact'),
+      why: M('Если программа поведёт себя странно, непонятно, кому писать и кто за это отвечает.',
+        'If the program behaves strangely, it is unclear who to contact and who is responsible.'),
+      action: M('Проверь раздел Issues: если он открыт, напиши туда. Если закрыт и контакта нет — это минус к доверию.',
+        'Check the Issues tab: if it is open, report there. If it is closed and there is no contact, that lowers trust.')
+    });
+
+    add({
+      id: 'u_ci', cat: 'trust', sev: 'medium', points: 4,
+      skip: !(ctx.releases || []).length,
+      skipReason: M('релизов нет — проверять происхождение файлов нечего', 'there are no releases, so there is no file provenance to check'),
+      ok: p.workflows > 0,
+      title: M('Сборка не автоматизирована', 'The build is not automated'),
+      why: M('Не видно, из какого кода получился релиз. Проверить цепочку сборки нельзя.',
+        'It is not visible which code produced the release. The build chain cannot be checked.'),
+      action: M('Если умеешь — скачай исходники и собери сам. Если нет — проверь файл на VirusTotal и запускай в Sandbox.',
+        'If you can, download the source and build it yourself. If not, check the file on VirusTotal and run it in a sandbox.')
+    });
+
+    add({
+      id: 'u_history', cat: 'trust', sev: 'low', points: 4,
+      ok: p.ageDays >= 30 || (repo.stargazers_count || 0) >= 25,
+      vars: { age: function () {
+        if (p.ageDays === 0) return state.lang === 'ru' ? 'сегодня' : 'today';
+        return ageText(p.ageDays) + (state.lang === 'ru' ? ' назад' : ' ago');
+      } },
+      title: M('У проекта почти нет истории', 'The project has almost no history'),
+      why: M('Репозиторий создан: {age}. У новых проектов ещё нет репутации: ни отзывов, ни исправленных ошибок.',
+        'The repository was created {age}. New projects have no reputation yet: no feedback, no fixed bugs.'),
+      action: M('Посмотри, есть ли у автора другие проекты и отвечает ли он на вопросы. Для нового проекта это особенно важно.',
+        'See whether the author has other projects and answers questions. For a new project this matters even more.')
+    });
+
+    return out;
+  }
+
+  function buildChecks(ctx, mode) {
+    var p = ctx.profile || (ctx.profile = detectProfile(ctx));
+    return mode === 'user' ? userChecks(ctx, p) : devChecks(ctx, p);
+  }
+
   /* ------------------------------------------------------------------ */
   /* Audit                                                               */
   /* ------------------------------------------------------------------ */
 
+  function chooseConfigs(paths) {
+    var re = /(^|\/)(\.env(\.[A-Za-z0-9_-]+)?|config\.(js|ts|json|py)|appsettings\.json|settings\.py|secrets?\.(json|ya?ml|toml)|firebase\.json|docker-compose\.ya?ml)$/i;
+    return paths.filter(function (p) {
+      return re.test(p) && !/\.(example|sample|template|dist)$/i.test(p);
+    }).slice(0, 2);
+  }
+
+  function chooseSources(paths, buildCandidates) {
+    var picked = [];
+    function push(p) {
+      if (p && picked.indexOf(p) < 0 && picked.length < 4) picked.push(p);
+    }
+    (buildCandidates || []).slice(0, 1).forEach(push);
+    var code = paths.filter(function (p) {
+      if (!CODE_RE.test(p)) return false;
+      if (/(^|\/)(node_modules|vendor|dist|build|coverage|\.git)\//i.test(p)) return false;
+      if (/\.min\./i.test(p)) return false;
+      return true;
+    });
+    code.filter(function (p) {
+      return /(^|\/)(main|program|launcher|winlock|app|index|server|bot|cli|install|setup|core)\.[A-Za-z0-9]+$/i.test(p);
+    }).forEach(push);
+    code.filter(function (p) { return p.indexOf('/') < 0 || /^src\//.test(p); }).forEach(push);
+    code.forEach(push);
+    return picked;
+  }
+
   function audit(repoRef) {
     var base = '/repos/' + repoRef.owner + '/' + repoRef.name;
-    var ctx = {};
+    var ctx = { sources: [], scanned: [], releases: [] };
 
     setStatus(t('loadingRepo'));
     return api(base).then(function (repo) {
       ctx.repo = repo;
-      if (!repo.size && repo.size !== 0) { /* keep going */ }
       setStatus(t('loadingTree'));
       return api(base + '/git/trees/' + encodeURIComponent(repo.default_branch) + '?recursive=1').catch(function (err) {
         if (err.kind === 'notfound') throw new HttpError(404, 'empty', 'empty');
@@ -834,6 +1872,7 @@
         return { path: x.path, size: x.size || 0 };
       });
       ctx.paths = ctx.blobs.map(function (b) { return b.path; });
+      ctx.pathText = ctx.paths.join('\n');
       if (!ctx.blobs.length) throw new HttpError(404, 'empty', 'empty');
 
       setStatus(t('loadingReadme'));
@@ -843,72 +1882,70 @@
       });
     }).then(function (readme) {
       ctx.readme = readme || '';
-
       setStatus(t('loadingScan'));
-      var candidates = ctx.blobs.filter(function (b) {
-        if (b.size > 200000) return false;
-        var p = b.path;
-        if (!/(^|\/)(\.env(\.[A-Za-z0-9_-]+)?|config\.(js|ts|json|py)|appsettings\.json|settings\.py|secrets?\.(json|ya?ml|toml)|firebase\.json|docker-compose\.ya?ml)$/i.test(p)) return false;
-        if (/\.(example|sample|template|dist)$/i.test(p)) return false;
-        return true;
-      }).slice(0, 4);
 
-      var scans = candidates.map(function (b) {
-        return api(base + '/contents/' + b.path.split('/').map(encodeURIComponent).join('/'), {
+      var buildCandidates = pathsMatching(ctx.paths, /(^|\/)(build\.(ps1|sh|bat|cmd)|Makefile|CMakeLists\.txt|meson\.build|Justfile|Taskfile\.ya?ml|configure)$/i);
+      var configs = chooseConfigs(ctx.paths);
+      var sources = chooseSources(ctx.paths, buildCandidates);
+      var targets = uniq(configs.concat(sources)).slice(0, 7);
+
+      var fetches = targets.map(function (path) {
+        return api(base + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), {
           raw: true, accept: 'application/vnd.github.raw'
         }).then(function (text) {
-          return { path: b.path, hits: scanText(text || '') };
+          return { path: path, text: text || '' };
         }).catch(function () {
-          return { path: b.path, hits: [] };
+          return { path: path, text: '' };
         });
       });
 
-      return Promise.all(scans).then(function (results) {
-        ctx.scanned = results;
+      return Promise.all(fetches).then(function (files) {
+        var readable = files.filter(function (f) { return f.text && f.text.length <= 400000; });
+        ctx.fetched = readable;
+        ctx.scanned = readable.map(function (f) {
+          return { path: f.path, hits: scanText(f.text) };
+        });
+        ctx.sources = readable.filter(function (f) {
+          return CODE_RE.test(f.path) || buildCandidates.indexOf(f.path) >= 0;
+        });
+        ctx.buildPath = buildCandidates.filter(function (p) {
+          return readable.some(function (f) { return f.path === p; });
+        })[0] || '';
+        var buildFile = readable.filter(function (f) { return f.path === ctx.buildPath; })[0];
+        ctx.buildText = buildFile ? buildFile.text : '';
 
         var wf = ctx.paths.filter(function (p) { return /^\.github\/workflows\/[^/]+\.ya?ml$/i.test(p); })[0];
         if (!wf) { ctx.workflowText = ''; return; }
-        setStatus(t('loadingScore'));
         return api(base + '/contents/' + wf.split('/').map(encodeURIComponent).join('/'), {
           raw: true, accept: 'application/vnd.github.raw'
-        }).then(function (text) { ctx.workflowText = text || ''; }).catch(function () { ctx.workflowText = ''; });
+        }).then(function (text) {
+          ctx.workflowText = text || '';
+          ctx.scanned.push({ path: wf, hits: scanText(ctx.workflowText) });
+        }).catch(function () { ctx.workflowText = ''; });
       });
     }).then(function () {
-      return api(base + '/releases?per_page=1').catch(function () { return []; });
+      return api(base + '/releases?per_page=5').catch(function () { return []; });
     }).then(function (releases) {
-      ctx.releases = Array.isArray(releases) ? releases.length : 0;
+      ctx.releases = Array.isArray(releases) ? releases : [];
+      ctx.releaseCount = ctx.releases.length;
+      ctx.releaseBodies = ctx.releases.map(function (r) { return r.body || ''; }).join('\n\n');
       setStatus(t('loadingScore'));
 
-      var checks = checkGroup(ctx);
+      ctx.profile = detectProfile(ctx);
       state.ctx = ctx;
-      state.checks = checks;
+      state.checks = buildChecks(ctx, state.mode);
       computeScore();
       return true;
     });
   }
 
   function computeScore() {
-    var total = 0;
-    var cats = {};
-    CATS.forEach(function (c) { cats[c.id] = { earned: 0, max: c.max }; });
-
-    state.checks.forEach(function (ch) {
-      var pts = ch.ok ? ch.points : 0;
-      if (ch.ok) {
-        total += ch.points;
-        cats[ch.cat].earned += ch.points;
-      }
-    });
-
-    state.score = Math.max(0, Math.min(100, total));
-    state.catScores = cats;
-    state.findings = state.checks
-      .filter(function (c) { return !c.ok && !c.silent; })
-      .sort(function (a, b) {
-        var d = SEV_ORDER[a.sev] - SEV_ORDER[b.sev];
-        if (d !== 0) return d;
-        return CATS.findIndex(function (c) { return c.id === a.cat; }) - CATS.findIndex(function (c) { return c.id === b.cat; });
-      });
+    var res = scoreChecks(state.checks, PROFILES[state.mode]);
+    state.score = res.score;
+    state.catScores = res.cats;
+    state.findings = res.findings;
+    state.skipped = res.skipped;
+    state.totalWeight = res.total;
   }
 
   /* ------------------------------------------------------------------ */
@@ -923,6 +1960,13 @@
   }
 
   function gradeText(score) {
+    if (state.mode === 'user') {
+      var ug = t('gradesUser');
+      if (score >= 85) return ug.great;
+      if (score >= 70) return ug.good;
+      if (score >= 50) return ug.meh;
+      return ug.bad;
+    }
     if (score >= 85) return t('gradeGreat');
     if (score >= 70) return t('gradeGood');
     if (score >= 50) return t('gradeMeh');
@@ -949,6 +1993,78 @@
     return '#bd3310';
   }
 
+  function profileCard() {
+    var p = state.ctx.profile;
+    var repo = state.ctx.repo;
+    var facts = profileFacts(p, state.ctx);
+    var html = '<div class="profile-card">' +
+      '<div class="profile-head">' +
+      '<span class="profile-label">' + esc(t('profileHead')) + '</span>' +
+      '<span class="profile-kind">' + esc(pick(kindLabel(p.kind))) + '</span>' +
+      '</div>';
+    if (repo.description) {
+      html += '<p class="profile-desc">' + esc(repo.description) + '</p>';
+    }
+    html += '<ul class="profile-facts">';
+    facts.forEach(function (f) {
+      html += '<li><b>' + esc(pick(f.k)) + '</b>' + esc(String(pick(f.v) || '')) + '</li>';
+    });
+    html += '</ul>';
+    html += '<p class="profile-note">' + esc(t(p.kind === 'other' ? 'profileNoteUnknown' : 'profileNote')) + '</p>';
+    html += '</div>';
+    return html;
+  }
+
+  function safetyCard() {
+    var p = state.ctx.profile;
+    var risk = p.risk;
+    var items = [];
+    var hasFiles = !!(p.hasBinaries || p.hasArchive);
+    items.push(t('safetyIntro'));
+    if (p.hasSource) items.push(fmt(t('safetySourceOpen'), { n: p.sourceCount || 0 }));
+    else if (p.hasBinaries) items.push(t('safetySourceClosed'));
+    if (!hasFiles) items.push(t(p.kind === 'web' ? 'safetySite' : 'safetyNoFiles'));
+
+    if (risk.network) items.push(t('safetyNetwork'));
+    else if (risk.scanned) items.push(t('safetyNoNetwork'));
+
+    if (risk.declared.length) {
+      items.push(fmt(t('safetyDeclared'), {
+        items: risk.declared.map(function (r) { return pick(r.label); }).join(', ')
+      }));
+    }
+    if (p.hasBinaries && !p.hasChecksums) items.push(t('safetyNoChecksums'));
+    if (p.hasBinaries && p.isUnsigned) items.push(t('safetyUnsigned'));
+    if (p.hasArchive) items.push(t('safetyArchive'));
+    if (p.hasAdmin) items.push(t('safetyAdmin'));
+    if (p.hasBinaries) items.push(t('safetyNoScan'));
+
+    var html = '<div class="safety-card">' +
+      '<div class="safety-head"><h2>' + esc(t('safetyHead')) + '</h2>' +
+      '<span class="profile-label">LC·02</span></div>' +
+      '<ul class="safety-list">';
+    items.forEach(function (line) { html += '<li>' + esc(line) + '</li>'; });
+    html += '</ul>' +
+      (hasFiles
+        ? '<div class="safety-actions">' +
+        '<p class="safety-vt">' + esc(t('safetyVt')) + '</p>' +
+        '<a class="ghost" href="https://www.virustotal.com/gui/home/upload" target="_blank" rel="noopener">' +
+        esc(t('safetyVtBtn')) + '</a></div>'
+        : '') +
+      '<p class="safety-not">' + esc(t('safetyNotGuarantee')) + '</p>' +
+      '</div>';
+    return html;
+  }
+
+  function skippedNote() {
+    if (!state.skipped.length) return '';
+    var list = state.skipped.slice(0, 4).map(function (s) {
+      return esc(t('cats')[s.cat] || s.cat) + ' — ' + esc(fmt(pick(s.skipReason), s.vars || {}));
+    });
+    var extra = state.skipped.length > 4 ? ' …' : '';
+    return '<p class="skipped"><b>' + esc(t('skippedLabel')) + ':</b> ' + list.join('; ') + extra + '</p>';
+  }
+
   function render(animate) {
     var ctx = state.ctx;
     if (!ctx) return;
@@ -956,6 +2072,8 @@
     var result = $('result');
     var counts = { critical: 0, high: 0, medium: 0, low: 0 };
     state.findings.forEach(function (f) { counts[f.sev]++; });
+    var isUser = state.mode === 'user';
+    var profile = PROFILES[state.mode];
 
     var repoUrl = 'https://github.com/' + repo.full_name;
     var html = '';
@@ -967,18 +2085,21 @@
       (repo.language ? '<span class="muted">· ' + esc(repo.language) + '</span>' : '') +
       '</div>' +
       '<div class="repo-meta">' +
+      '<span class="mode-flag">' + esc(t(isUser ? 'modeFlagUser' : 'modeFlagDev')) + '</span>' +
       '<span><b>' + nf(repo.stargazers_count) + '</b> ' + t('stars') + '</span>' +
       '<span><b>' + nf(repo.forks_count) + '</b> ' + t('forks') + '</span>' +
       '<span><b>' + nf(ctx.blobs.length) + '</b> ' + t('files') + '</span>' +
       '<span>' + t('updated') + ' ' + esc(dateStr(repo.pushed_at)) + '</span>' +
       '</div></div>';
 
+    html += profileCard();
+
     html += '<div class="scoreboard">';
 
     /* score card */
     var scoreInk = scoreColor(state.score);
     html += '<div class="card score-card">' +
-      '<div class="score-label"><span>' + esc(t('score')) + '</span><span>LC·01</span></div>' +
+      '<div class="score-label"><span>' + esc(t('score')) + '</span><span>' + esc(t(isUser ? 'modeShortUser' : 'modeShortDev')) + '</span></div>' +
       '<div class="score-figure"><span id="scoreNum" style="color:' + scoreInk + '">0</span>' +
       '<span class="score-of">' + esc(t('outOf')) + '</span></div>' +
       '<div class="stamp" style="color:' + scoreInk + '">' + esc(gradeText(state.score)) + '</div>' +
@@ -992,13 +2113,13 @@
       '<span class="counts"><b>' + state.findings.length + '</b> ' + esc(pluralIssues(state.findings.length)) + '</span></div>';
 
     html += '<div class="bars">';
-    CATS.forEach(function (cat) {
-      var cs = state.catScores[cat.id];
-      var pct = Math.round((cs.earned / cs.max) * 100);
+    profile.cats.forEach(function (cat) {
+      var cs = state.catScores[cat.id] || { earned: 0, max: 0 };
+      var pct = cs.max ? Math.round((cs.earned / cs.max) * 100) : 0;
       html += '<div class="bar-row">' +
         '<span class="bar-name">' + esc(t('cats')[cat.id]) + '</span>' +
         '<span class="bar-track"><span class="bar-fill" data-pct="' + pct + '" style="background:' + catColor(cs.earned, cs.max) + '"></span></span>' +
-        '<span class="bar-val">' + cs.earned + '/' + cs.max + '</span>' +
+        '<span class="bar-val">' + (cs.max ? cs.earned + '/' + cs.max : '—') + '</span>' +
         '</div>';
     });
     html += '</div>';
@@ -1006,18 +2127,20 @@
     html += '<div class="actions">' +
       '<button class="ghost" id="btnCard" type="button">' + esc(t('card')) + '</button>' +
       '<button class="ghost" id="btnBadge" type="button">' + esc(t('badge')) + '</button>' +
-      '<button class="ghost" id="btnAll" type="button">' + esc(t('copyAll')) + '</button>' +
+      '<button class="ghost" id="btnAll" type="button">' + esc(t(isUser ? 'copyAllNote' : 'copyAll')) + '</button>' +
       '<button class="ghost" id="btnAgain" type="button">' + esc(t('again')) + '</button>' +
       '</div>';
 
     html += '</div></div>'; /* summary + scoreboard */
+
+    if (isUser) html += safetyCard();
 
     if (ctx.truncated) {
       html += '<p class="hint">' + esc(t('truncated')) + '</p>';
     }
 
     /* issues */
-    html += '<div class="issues"><div class="issues-head"><h2>' + esc(t('issues')) + '</h2>' +
+    html += '<div class="issues"><div class="issues-head"><h2>' + esc(t(isUser ? 'issuesUser' : 'issues')) + '</h2>' +
       '<div class="legend">' +
       '<span><i style="background:#bd3310"></i>' + esc(t('severity').critical) + '</span>' +
       '<span><i style="background:#9a6f0b"></i>' + esc(t('severity').high) + '</span>' +
@@ -1025,7 +2148,7 @@
       '</div></div>';
 
     if (!state.findings.length) {
-      html += '<div class="issue"><p>' + esc(t('noIssues')) + '</p></div>';
+      html += '<div class="issue issue-empty"><p>' + esc(t(isUser ? 'noIssuesUser' : 'noIssues')) + '</p></div>';
     } else {
       html += '<div class="issue-list">';
       var list = state.showAll ? state.findings : state.findings.slice(0, 8);
@@ -1040,6 +2163,7 @@
       }
     }
 
+    html += skippedNote();
     html += '</div>';
 
     html += '<div class="cta"><p>' + esc(t('cta')) + '</p>' +
@@ -1077,6 +2201,12 @@
   function renderIssue(f, index) {
     var vars = f.vars || {};
     var num = ('0' + (index + 1)).slice(-2);
+    var isUser = state.mode === 'user';
+    var action = '';
+    if (isUser && f.action) {
+      action = '<div class="issue-action"><span class="action-label">' + esc(t('actionLabel')) + '</span>' +
+        '<p>' + esc(fmt(pick(f.action), vars)) + '</p></div>';
+    }
     return '<article class="issue ' + f.sev + '">' +
       '<span class="issue-no" aria-hidden="true">' + num + '</span>' +
       '<div class="issue-top">' +
@@ -1085,8 +2215,9 @@
       '</div>' +
       '<h3>' + esc(fmt(pick(f.title), vars)) + '</h3>' +
       '<p>' + esc(fmt(pick(f.why), vars)) + '</p>' +
+      action +
       '<div class="issue-actions"><button class="copy" type="button" data-issue="' + index + '">' +
-      esc(t('copyPrompt')) + '</button></div>' +
+      esc(t(isUser ? 'copyStep' : 'copyPrompt')) + '</button></div>' +
       '</article>';
   }
 
@@ -1112,7 +2243,8 @@
 
   function promptText(f) {
     var vars = Object.assign({ repo: state.ctx.repo.full_name, branch: state.ctx.repo.default_branch }, f.vars || {});
-    return fmt(pick(f.prompt), vars);
+    var text = state.mode === 'user' ? f.action : f.prompt;
+    return fmt(pick(text), vars);
   }
 
   function copyText(text, okMsg) {
@@ -1137,15 +2269,17 @@
 
   function copyAll() {
     var repo = state.ctx.repo.full_name;
-    var header = fmt(t('promptHeader'), { repo: repo, score: state.score });
-    var parts = [header, '', t('promptIntro'), ''];
+    var isUser = state.mode === 'user';
+    var header = fmt(t(isUser ? 'userHeader' : 'promptHeader'), { repo: repo, score: state.score });
+    var parts = [header, '', t(isUser ? 'userIntro' : 'promptIntro'), ''];
     state.findings.forEach(function (f, i) {
       parts.push((i + 1) + '. [' + t('severity')[f.sev] + '] ' + fmt(pick(f.title), f.vars || {}));
-      parts.push(promptText(f));
+      if (isUser) parts.push(t('actionLabel') + ': ' + promptText(f));
+      else parts.push(promptText(f));
       parts.push('');
     });
-    if (!state.findings.length) parts.push(t('noIssues'));
-    copyText(parts.join('\n'), t('copiedAll'));
+    if (!state.findings.length) parts.push(t(isUser ? 'noIssuesUser' : 'noIssues'));
+    copyText(parts.join('\n'), t(isUser ? 'copiedAllNote' : 'copiedAll'));
   }
 
   function downloadBlob(blob, filename, doneMsg) {
@@ -1274,12 +2408,12 @@
     x.fillStyle = DIM;
     x.font = '500 10px ' + MONO;
     track('1.6px');
-    x.fillText('BY CATEGORY', 56, 250);
+    x.fillText(fit('BY CATEGORY / ' + pick(kindLabel(state.ctx.profile.kind)).toUpperCase(), 500), 56, 250);
     track('0px');
 
     var bx = 220, bw = 372, by = 282, gap = 38;
-    CATS.forEach(function (cat, idx) {
-      var cs = state.catScores[cat.id];
+    PROFILES[state.mode].cats.forEach(function (cat, idx) {
+      var cs = state.catScores[cat.id] || { earned: 0, max: 0 };
       var yy = by + idx * gap;
       var ccol = catColor(cs.earned, cs.max);
 
@@ -1298,7 +2432,7 @@
       }
 
       /* filled portion */
-      var w = Math.max(2, (bw * cs.earned) / cs.max);
+      var w = cs.earned ? Math.max(2, (bw * cs.earned) / cs.max) : 0;
       x.fillStyle = ccol;
       x.fillRect(bx, yy - 7, w, 8.5);
 
@@ -1318,7 +2452,7 @@
     x.fillStyle = MUTED;
     x.font = '500 9.5px ' + MONO;
     track('1.8px');
-    x.fillText('SCORE', px + 24, py + 30);
+    x.fillText('SCORE / ' + t(state.mode === 'user' ? 'modeShortUser' : 'modeShortDev'), px + 24, py + 30);
     x.textAlign = 'right';
     x.fillText('LC·01', px + pw - 24, py + 30);
     x.textAlign = 'left';
@@ -1390,7 +2524,10 @@
     x.fillStyle = MUTED;
     x.font = '400 11px ' + MONO;
     track('0.4px');
-    x.fillText(fmt(t('cardFooter'), { host: location.host || 'launchcheck' }), 56, 576);
+    var cardHost = (location.host && !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(location.host))
+      ? location.host
+      : 'tizz13.github.io';
+    x.fillText(fmt(t('cardFooter'), { host: cardHost }), 56, 576);
     x.fillStyle = DIM;
     x.textAlign = 'center';
     x.fillText('DETERMINISTIC AUDIT · NO AI', 600, 576);
@@ -1494,6 +2631,7 @@
         history.replaceState(null, '', url.toString());
         document.title = ref.owner + '/' + ref.name + ' · LaunchCheck';
       } catch (e) { /* ignore */ }
+      syncModeUrl();
       $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }).catch(function (err) {
       setBusy(false);
@@ -1504,6 +2642,44 @@
   /* ------------------------------------------------------------------ */
   /* Language, settings, init                                            */
   /* ------------------------------------------------------------------ */
+
+  function modeBlurbText() {
+    return t(state.mode === 'user' ? 'modeBlurbUser' : 'modeBlurbDev');
+  }
+
+  function syncModeButtons() {
+    document.querySelectorAll('[data-mode]').forEach(function (btn) {
+      var on = btn.getAttribute('data-mode') === state.mode;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var blurb = $('modeBlurb');
+    if (blurb) blurb.textContent = modeBlurbText();
+    var group = $('modes');
+    if (group) group.setAttribute('aria-label', t('modeGroup'));
+  }
+
+  function syncModeUrl() {
+    try {
+      var url = new URL(location.href);
+      if (state.mode === 'user') url.searchParams.set('mode', 'user');
+      else url.searchParams.delete('mode');
+      history.replaceState(null, '', url.toString());
+    } catch (e) { }
+  }
+
+  /* Rebuild the report from the data already in memory: no second fetch. */
+  function applyMode(mode, animate) {
+    state.mode = mode === 'user' ? 'user' : 'dev';
+    try { localStorage.setItem(LS.mode, state.mode); } catch (e) { }
+    syncModeButtons();
+    if (!state.ctx) { syncModeUrl(); return; }
+    state.showAll = false;
+    state.checks = buildChecks(state.ctx, state.mode);
+    computeScore();
+    render(animate !== false);
+    syncModeUrl();
+  }
 
   function applyLang(lang) {
     state.lang = lang === 'en' ? 'en' : 'ru';
@@ -1526,10 +2702,12 @@
 
     if ($('repoInput')) $('repoInput').placeholder = t('placeholder');
     if (!state.ctx) document.title = t('pageTitle');
+    syncModeButtons();
 
     try { localStorage.setItem(LS.lang, state.lang); } catch (e) { }
 
     if (state.ctx) {
+      state.checks = buildChecks(state.ctx, state.mode);
       computeScore();
       render(false);
     }
@@ -1576,6 +2754,7 @@
   }
 
   function init() {
+    var params = new URLSearchParams(location.search);
     try {
       var stored = localStorage.getItem(LS.lang);
       if (stored === 'ru' || stored === 'en') {
@@ -1585,9 +2764,13 @@
         state.lang = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
       }
       state.token = localStorage.getItem(LS.token) || '';
+      var storedMode = localStorage.getItem(LS.mode);
+      if (storedMode === 'user' || storedMode === 'dev') state.mode = storedMode;
     } catch (e) {
       state.lang = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
     }
+    var urlMode = params.get('mode');
+    if (urlMode === 'user' || urlMode === 'dev') state.mode = urlMode;
 
     applyLang(state.lang);
 
@@ -1614,6 +2797,18 @@
       applyLang(state.lang === 'ru' ? 'en' : 'ru');
     });
 
+    var modes = $('modes');
+    if (modes) {
+      modes.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('[data-mode]') : null;
+        if (!btn) return;
+        var next = btn.getAttribute('data-mode');
+        if (next === state.mode) return;
+        applyMode(next, true);
+      });
+    }
+    syncModeButtons();
+
     $('settingsBtn').addEventListener('click', openSettings);
     $('modalClose').addEventListener('click', closeSettings);
     $('tokenClear').addEventListener('click', function () {
@@ -1634,7 +2829,6 @@
     $('ghLink').href = 'https://github.com/' + (location.hostname.split('.')[0] === 'tizz13' ? 'TIZZ13/launchcheck' : 'TIZZ13/launchcheck');
 
     /* deep link + last repo */
-    var params = new URLSearchParams(location.search);
     var deep = params.get('repo');
     var last = deep || null;
     if (!last) { try { last = localStorage.getItem(LS.last); } catch (e) { } }
@@ -1656,7 +2850,18 @@
 
   /* Exported for the Node test runner. The browser never sees this branch. */
   if (typeof module !== 'undefined' && module.exports && typeof document === 'undefined') {
-    module.exports = { parseRepo: parseRepo, scanText: scanText, fmt: fmt };
+    module.exports = {
+      parseRepo: parseRepo,
+      scanText: scanText,
+      fmt: fmt,
+      detectStack: detectStack,
+      detectProfile: detectProfile,
+      readmeLangInfo: readmeLangInfo,
+      claimsMatch: claimsMatch,
+      scanRisk: scanRisk,
+      scoreChecks: scoreChecks,
+      PROFILES: PROFILES
+    };
     return;
   }
 

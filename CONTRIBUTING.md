@@ -13,6 +13,8 @@ A check is a small rule plus a prompt. To add one, open an issue first and descr
 
 Rules must be deterministic: the same repository must always produce the same result. No network calls beyond `api.github.com`, no external services, no heuristics that depend on time or popularity.
 
+There are two profiles, `PROFILES.dev` and `PROFILES.user`. A check belongs to one profile and one category, carries a weight, and must declare when it does not apply (`skip` plus `skipReason`) instead of quietly failing. Downloader-mode text must never claim that a file is safe or virus-free: it reports signals, and the decision stays with the reader.
+
 ## Text rules
 
 - Explain the problem, not the solution. The prompt explains the solution.
