@@ -1,0 +1,49 @@
+# Contributing to LaunchCheck
+
+Thanks for wanting to help. LaunchCheck is a small, dependency-free static site, so contributing is mostly about writing good rules and honest text.
+
+## The most useful contribution: a new check
+
+A check is a small rule plus a prompt. To add one, open an issue first and describe:
+
+1. **The mistake.** What does a maintainer do wrong before launch?
+2. **The rule.** How can it be detected from public repository data (file names, README text, repository metadata, releases)?
+3. **The cost.** Why does it matter to a stranger who just found the repository?
+4. **The prompt.** What exactly should an AI agent do to fix it?
+
+Rules must be deterministic: the same repository must always produce the same result. No network calls beyond `api.github.com`, no external services, no heuristics that depend on time or popularity.
+
+## Text rules
+
+- Explain the problem, not the solution. The prompt explains the solution.
+- No marketing language, no exclamation marks, no shaming.
+- Russian and English must say the same thing. Keep the Russian natural, not a literal translation.
+- A prompt must be safe to paste into an agent: explicit steps, "do not change anything else", no invented commands.
+
+## Code rules
+
+- Plain HTML, CSS and JavaScript. No build step, no npm dependencies, no frameworks.
+- Support the current versions of Chrome, Firefox and Safari.
+- Every new pure function should be exported for tests (`module.exports` branch at the bottom of `assets/app.js`) and covered in `tests/`.
+- Keep the UI usable at 360 px wide.
+
+## Before opening a pull request
+
+```bash
+node --check assets/app.js
+node --test tests/
+python3 scripts/check.py
+```
+
+If you changed `assets/app.js` or `assets/styles.css`, bump the `?v=` number in `index.html` so browsers pick up the new file.
+
+## Good first issues
+
+- A new check for a stack you know well (monorepos, mobile apps, data projects).
+- Better wording for an existing issue or prompt.
+- A translation fix in the Russian interface.
+- A bug report with the repository that produced a wrong score.
+
+## Code of conduct
+
+Be decent. Critique the repository, never the person. Assume the other side is acting in good faith.

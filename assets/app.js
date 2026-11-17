@@ -482,7 +482,7 @@
       )
     });
 
-    var entryRe = /(^|\/)(src\/|main\.[a-z0-9]+$|Program\.cs$|App\.(xaml|jsx|tsx|vue|svelte)$|index\.(js|ts|html)$|app\.py$|manage\.py$|cmd\/)/i;
+    var entryRe = /(^|\/)(src\/|main\.[a-z0-9]+$|Program\.cs$|App\.(xaml|jsx|tsx|vue|svelte)$|index\.(js|ts|html)$|app\.py$|manage\.py$|cmd\/)/im;
     add({
       id: 'r_entry', cat: 'runnable', sev: 'medium', points: 4,
       ok: entryRe.test(paths.join('\n')),
@@ -515,7 +515,7 @@
 
     /* ---------- quality (15) ---------- */
 
-    var testRe = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z0-9]+$|_test\.[a-z0-9]+$|Tests?\.cs$/i;
+    var testRe = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z0-9]+$|_test\.[a-z0-9]+$|Tests?\.cs$/im;
     add({
       id: 'q_tests', cat: 'quality', sev: 'high', points: 6,
       ok: testRe.test(paths.join('\n')),
@@ -530,7 +530,7 @@
       )
     });
 
-    var lintRe = /(^|\/)(\.eslintrc(\.[a-z]+)?|eslint\.config\.[a-z]+|\.prettierrc(\.[a-z]+)?|ruff\.toml|\.flake8|\.editorconfig|\.stylecop\.json|\.golangci\.ya?ml|clippy\.toml|detekt\.ya?ml|\.rubocop\.yml)$/i;
+    var lintRe = /(^|\/)(\.eslintrc(\.[a-z]+)?|eslint\.config\.[a-z]+|\.prettierrc(\.[a-z]+)?|ruff\.toml|\.flake8|\.editorconfig|\.stylecop\.json|\.golangci\.ya?ml|clippy\.toml|detekt\.ya?ml|\.rubocop\.yml)$/im;
     add({
       id: 'q_lint', cat: 'quality', sev: 'low', points: 4,
       ok: lintRe.test(paths.join('\n')),
@@ -665,7 +665,7 @@
       )
     });
 
-    var hasChangelog = /(^|\/)(CHANGELOG|CHANGES|HISTORY)(\.md|\.txt)?$/i.test(paths.join('\n'));
+    var hasChangelog = /(^|\/)(CHANGELOG|CHANGES|HISTORY)(\.md|\.txt)?$/im.test(paths.join('\n'));
     add({
       id: 'd_releases', cat: 'product', sev: 'medium', points: 3,
       ok: ctx.releases > 0,
@@ -735,7 +735,7 @@
 
     /* ---------- trust (10) ---------- */
 
-    var hasSecurity = /(^|\/)(SECURITY\.md|\.github\/SECURITY\.md)$/i.test(paths.join('\n')) ||
+    var hasSecurity = /(^|\/)(SECURITY\.md|\.github\/SECURITY\.md)$/im.test(paths.join('\n')) ||
       /(sha-?256|checksum|контрольн|подпис|signed)/i.test(readme);
     add({
       id: 't_trust', cat: 'trust', sev: 'low', points: 4,
@@ -751,8 +751,8 @@
       )
     });
 
-    var hasContrib = /(^|\/)(CONTRIBUTING\.md|\.github\/CONTRIBUTING\.md)$/i.test(paths.join('\n'));
-    var hasCoc = /(^|\/)(CODE_OF_CONDUCT\.md|\.github\/CODE_OF_CONDUCT\.md)$/i.test(paths.join('\n'));
+    var hasContrib = /(^|\/)(CONTRIBUTING\.md|\.github\/CONTRIBUTING\.md)$/im.test(paths.join('\n'));
+    var hasCoc = /(^|\/)(CODE_OF_CONDUCT\.md|\.github\/CODE_OF_CONDUCT\.md)$/im.test(paths.join('\n'));
     add({
       id: 't_contrib', cat: 'trust', sev: 'low', points: 3,
       ok: hasContrib || hasCoc,
@@ -769,7 +769,7 @@
     });
 
     var hasContact = /(mailto:|contact|связ[а-я]*|support|поддержк)/i.test(readme) ||
-      !!(repo.owner && repo.owner.html_url && /(^|\/)(SECURITY\.md|SUPPORT\.md)$/i.test(paths.join('\n')));
+      !!(repo.owner && repo.owner.html_url && /(^|\/)(SECURITY\.md|SUPPORT\.md)$/im.test(paths.join('\n')));
     add({
       id: 't_contact', cat: 'trust', sev: 'low', points: 3,
       ok: hasContact,

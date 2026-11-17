@@ -1,0 +1,42 @@
+name: Bug report
+description: A repository got a wrong score, the page broke, or a prompt is wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A wrong score is the most useful bug you can find — please include the repository link.
+  - type: input
+    id: repo
+    attributes:
+      label: Repository that produced the result
+      description: Public link, or `owner/name`.
+      placeholder: owner/name
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect and what happened
+      description: The score, the category, or the exact issue card that looks wrong.
+    validations:
+      required: true
+  - type: input
+    id: score
+    attributes:
+      label: Score shown
+      placeholder: "54/100"
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome / Edge
+        - Firefox
+        - Safari
+        - Other
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots are welcome. Do not paste tokens or secrets.

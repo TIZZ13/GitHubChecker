@@ -1,0 +1,46 @@
+name: New check
+description: Propose a rule that catches a mistake before launch.
+labels: [check]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A good check has a clear rule, a clear cost and a safe prompt. Read [docs/checks.md](https://github.com/TIZZ13/launchcheck/blob/main/docs/checks.md) first.
+  - type: input
+    id: title
+    attributes:
+      label: The mistake
+      placeholder: No installation instructions for a Python package
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: How to detect it
+      description: Which files, README text or repository fields can prove it from the public API?
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: Why it matters to a visitor
+    validations:
+      required: true
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Draft prompt for the agent
+      description: Explicit steps, no invented commands, "do not change anything else".
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Security
+        - Runnable
+        - Quality
+        - Repository
+        - Product
+        - Trust
+    validations:
+      required: true

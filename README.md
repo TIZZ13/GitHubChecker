@@ -54,7 +54,7 @@ That is why it is free and why it can stay free: it is three files on GitHub Pag
 
 Grades: **85+** ready to ship · **70–84** almost there · **50–69** too early to show · **below 50** fix it first.
 
-The score is not a verdict on your code quality. It measures one thing: how ready the repository is to be seen by strangers.
+The score is not a verdict on your code quality. It measures one thing: how ready the repository is to be seen by strangers. The exact rule behind every check is documented in [docs/checks.md](docs/checks.md).
 
 ## What it is not
 
@@ -106,6 +106,8 @@ The suite covers URL parsing and the secret scanner — the two places where a s
 ## Contributing
 
 Issues and pull requests are welcome. The most useful contributions are **new checks with a clear rule and a clear prompt**: if you can describe a mistake a maintainer should fix before launch, it probably belongs here.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [full list of checks](docs/checks.md) first.
 
 Please keep the project dependency-free. Any change must work as plain HTML/CSS/JS on GitHub Pages.
 
