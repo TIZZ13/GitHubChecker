@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaunchCheck — проверь проект до того, как его увидят</title>
+<meta name="description" content="Бесплатный аудит GitHub-репозитория: секреты в коде, запуск, тесты, лицензия, релизы и доверие. Понятный список проблем и готовые промпты для ИИ-агента. Без установки и регистрации.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="LaunchCheck — аудит проекта перед запуском">
+<meta property="og:description" content="Вставь ссылку на репозиторий — получи оценку, список проблем человеческим языком и промпты, которые можно сразу отдать своему агенту.">
+<meta property="og:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://tizz13.github.io/launchcheck/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f14'/%3E%3Cpath d='M18 33l9 9 19-21' fill='none' stroke='%236ee7b7' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/styles.css?v=5">
+</head>
+<body>
+<div class="aura" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="./" aria-label="LaunchCheck">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="brand-text">LaunchCheck</span>
+  </a>
+
+  <div class="top-right">
+    <span id="rate" class="rate" title="Остаток запросов к GitHub API">API —</span>
+    <button id="langBtn" class="ghost" type="button" aria-label="Switch language">EN</button>
+    <button id="settingsBtn" class="ghost icon" type="button" aria-label="Настройки" title="Настройки">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a7.9 7.9 0 0 0 .05-3l1.8-1.35-1.9-3.3-2.15.85a7.7 7.7 0 0 0-2.6-1.5L14.3 2.8h-3.8l-.3 2.4a7.7 7.7 0 0 0-2.6 1.5l-2.15-.85-1.9 3.3L5.35 10.5a7.9 7.9 0 0 0 0 3L3.55 14.85l1.9 3.3 2.15-.85a7.7 7.7 0 0 0 2.6 1.5l.3 2.4h3.8l.3-2.4a7.7 7.7 0 0 0 2.6-1.5l2.15.85 1.9-3.3-1.85-1.35Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <p class="kicker"><span class="dot"></span><span data-i18n="kicker">Бесплатно · без установки · без регистрации</span></p>
+    <h1 data-i18n-html="h1">Проверь проект<br>до того, как его увидят</h1>
+    <p class="lead" data-i18n="lead">Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.</p>
+
+    <form id="form" class="search" autocomplete="off">
+      <div class="field">
+        <svg class="field-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input id="repoInput" name="repo" type="text" spellcheck="false"
+               placeholder="owner/repo или ссылка на GitHub"
+               aria-label="Репозиторий GitHub" autofocus>
+      </div>
+      <button id="go" class="primary" type="submit">
+        <span class="primary-label" data-i18n="check">Проверить</span>
+        <span class="spinner" aria-hidden="true"></span>
+      </button>
+    </form>
+
+    <div class="chips" id="chips" aria-label="Примеры"></div>
+
+    <p class="hint" data-i18n="hint">Работает с публичными репозиториями. Приватные — добавь токен в настройках.</p>
+  </section>
+
+  <section id="status" class="status" hidden aria-live="polite"></section>
+
+  <section id="result" class="result" hidden aria-live="polite"></section>
+
+  <section class="explain">
+    <div data-lang="ru">
+      <h2>Что проверяется</h2>
+      <div class="grid">
+        <article class="ex">
+          <h3>Безопасность <span>25</span></h3>
+          <p>Секреты в коде, <code>.env</code> в репозитории, приватные ключи, конфиги с паролями.</p>
+        </article>
+        <article class="ex">
+          <h3>Запуск <span>20</span></h3>
+          <p>Инструкция «как запустить», манифест проекта, lockfile, точка входа, CI.</p>
+        </article>
+        <article class="ex">
+          <h3>Качество <span>15</span></h3>
+          <p>Тесты, линтер, проверка тестов в CI, гигантские файлы в репозитории.</p>
+        </article>
+        <article class="ex">
+          <h3>Репозиторий <span>15</span></h3>
+          <p>Лицензия, описание, темы, README на английском, картинки.</p>
+        </article>
+        <article class="ex">
+          <h3>Продукт <span>15</span></h3>
+          <p>Демо-ссылка, релизы, CHANGELOG, шаблоны issue, документация.</p>
+        </article>
+        <article class="ex">
+          <h3>Доверие <span>10</span></h3>
+          <p>Контрольные суммы, политика безопасности, CONTRIBUTING, контакты.</p>
+        </article>
+      </div>
+
+      <h2>Как это работает</h2>
+      <ol class="steps">
+        <li><b>Читает публичные данные.</b> Сайт делает несколько запросов к GitHub API: описание, файлы, README, релизы.</li>
+        <li><b>Прогоняет правила.</b> Это детерминированные проверки, а не ИИ: одинаковый репозиторий всегда получает одинаковый балл.</li>
+        <li><b>Объясняет и даёт промпт.</b> Каждая проблема — человеческим языком, с готовым текстом для твоего агента.</li>
+      </ol>
+
+      <h2>Приватность</h2>
+      <p class="privacy">Ничего не отправляется никуда, кроме <code>api.github.com</code>. Нет аналитики, нет аккаунтов, нет базы данных. Токен, если добавишь, хранится только в твоём браузере. Найденные секреты не показываются в интерфейсе и не логируются.</p>
+    </div>
+
+    <div data-lang="en">
+      <h2>What gets checked</h2>
+      <div class="grid">
+        <article class="ex"><h3>Security <span>25</span></h3><p>Secrets in code, committed <code>.env</code>, private keys, configs with passwords.</p></article>
+        <article class="ex"><h3>Runnable <span>20</span></h3><p>Install/run instructions, manifest, lockfile, entry point, CI.</p></article>
+        <article class="ex"><h3>Quality <span>15</span></h3><p>Tests, linter, tests running in CI, huge files in the repo.</p></article>
+        <article class="ex"><h3>Repository <span>15</span></h3><p>License, description, topics, English README, images.</p></article>
+        <article class="ex"><h3>Product <span>15</span></h3><p>Demo link, releases, changelog, issue templates, docs.</p></article>
+        <article class="ex"><h3>Trust <span>10</span></h3><p>Checksums, security policy, contributing guide, contacts.</p></article>
+      </div>
+
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li><b>Reads public data.</b> A few GitHub API requests: description, file tree, README, releases.</li>
+        <li><b>Runs rules.</b> Deterministic checks, not AI: the same repository always gets the same score.</li>
+        <li><b>Explains and hands you a prompt.</b> Every issue is plain language, with text you can paste into your agent.</li>
+      </ol>
+
+      <h2>Privacy</h2>
+      <p class="privacy">Nothing is sent anywhere except <code>api.github.com</code>. No analytics, no accounts, no database. A token, if you add one, stays in your browser. Detected secrets are never rendered or logged.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span data-i18n="foot">LaunchCheck · статический сайт на GitHub Pages</span>
+  <a id="ghLink" href="#" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle" data-i18n="settings">Настройки</h2>
+
+    <label class="lbl" for="tokenInput" data-i18n="tokenLabel">GitHub token (необязательно)</label>
+    <input id="tokenInput" type="password" spellcheck="false" placeholder="ghp_... или github_pat_...">
+    <p class="small" data-i18n="tokenHelp">Нужен только для приватных репозиториев и лимита 5000 запросов в час вместо 60. Хранится в localStorage этого браузера и уходит только на api.github.com. Нужен scope <code>public_repo</code>.</p>
+
+    <div class="modal-row">
+      <button id="tokenCheck" class="ghost" type="button" data-i18n="tokenCheck">Проверить токен</button>
+      <span id="tokenStatus" class="small"></span>
+    </div>
+
+    <div class="modal-actions">
+      <button id="tokenClear" class="ghost" type="button" data-i18n="tokenClear">Удалить токен</button>
+      <button id="modalClose" class="primary" type="button" data-i18n="done">Готово</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="assets/app.js?v=5" defer></script>
+</body>
+</html>
