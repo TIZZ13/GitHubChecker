@@ -117,6 +117,8 @@ Please keep the project dependency-free. Any change must work as plain HTML/CSS/
 
 [MIT](LICENSE)
 
+Typefaces: Literata, Onest and JetBrains Mono — self-hosted from `assets/fonts/`, licensed under the SIL Open Font License 1.1 (see [assets/fonts/OFL.txt](assets/fonts/OFL.txt)).
+
 ---
 
 ## Русский

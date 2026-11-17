@@ -30,6 +30,12 @@
       pageTitle: 'LaunchCheck — проверь проект до того, как его увидят',
       h1: 'Проверь проект<br>до того, как его <em>увидят</em>',
       lead: 'Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.',
+      noteHead: 'Полевая заметка 01',
+      noteTitle: 'Три вопроса, на которые отвечает отчёт',
+      note1: 'Запустится ли проект с чистого клона?',
+      note2: 'Нет ли в репозитории секретов?',
+      note3: 'Поверит ли этому незнакомый человек?',
+      noteFoot: '23 правила · без ИИ',
       check: 'Проверить',
       hint: 'Работает с публичными репозиториями. Приватные — добавь токен в настройках.',
       placeholder: 'owner/repo или ссылка на GitHub',
@@ -99,6 +105,12 @@
       pageTitle: 'LaunchCheck — audit your GitHub repo before you launch it',
       h1: 'Check your project<br>before people <em>see it</em>',
       lead: 'Paste a GitHub repository link. Get a score out of 100, a plain-language list of problems, and ready-to-paste prompts for your AI agent.',
+      noteHead: 'Field note 01',
+      noteTitle: 'Three questions the report answers',
+      note1: 'Does it run from a clean clone?',
+      note2: 'Is anything secret sitting in the tree?',
+      note3: 'Would a stranger trust it on sight?',
+      noteFoot: '23 rules · no AI',
       check: 'Check',
       hint: 'Works with public repositories. For private ones, add a token in settings.',
       placeholder: 'owner/repo or a GitHub link',
@@ -901,10 +913,10 @@
   /* ------------------------------------------------------------------ */
 
   function scoreColor(score) {
-    if (score >= 85) return '#6ee7b7';
-    if (score >= 70) return '#a3e635';
-    if (score >= 50) return '#fbbf24';
-    return '#f87171';
+    if (score >= 85) return '#1f6b47';
+    if (score >= 70) return '#4f6b1c';
+    if (score >= 50) return '#9a6f0b';
+    return '#bd3310';
   }
 
   function gradeText(score) {
@@ -924,27 +936,14 @@
     return n === 1 ? t('issueOne') : t('issueMany');
   }
 
-  function ringSvg(score, size) {
-    var r = size / 2 - 9;
-    var c = 2 * Math.PI * r;
-    var color = scoreColor(score);
-    var offset = c * (1 - score / 100);
-    return '' +
-      '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" aria-hidden="true">' +
-      '<circle class="ring-track" cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="none" stroke-width="10"/>' +
-      '<circle class="ring-value" cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="10" ' +
-      'stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + c.toFixed(1) + '" data-final="' + offset.toFixed(1) + '"/>' +
-      '</svg>';
-  }
-
   function renderRateBadge() { renderRate(); }
 
   function catColor(earned, max) {
     var pct = max ? (earned / max) * 100 : 0;
-    if (pct >= 85) return '#6ee7b7';
-    if (pct >= 60) return '#a3e635';
-    if (pct >= 35) return '#fbbf24';
-    return '#f87171';
+    if (pct >= 85) return '#1f6b47';
+    if (pct >= 60) return '#4f6b1c';
+    if (pct >= 35) return '#9a6f0b';
+    return '#bd3310';
   }
 
   function render(animate) {
@@ -974,11 +973,14 @@
     html += '<div class="scoreboard">';
 
     /* score card */
+    var scoreInk = scoreColor(state.score);
     html += '<div class="card score-card">' +
-      '<div class="ring">' + ringSvg(state.score, 176) +
-      '<div class="ring-label"><div class="ring-score" id="scoreNum" style="color:' + scoreColor(state.score) + '">0</div>' +
-      '<div class="ring-max">' + esc(t('outOf')) + '</div></div></div>' +
-      '<div class="grade">' + esc(gradeText(state.score)) + '</div>' +
+      '<div class="score-label"><span>' + esc(t('score')) + '</span><span>LC·01</span></div>' +
+      '<div class="score-figure"><span id="scoreNum" style="color:' + scoreInk + '">0</span>' +
+      '<span class="score-of">' + esc(t('outOf')) + '</span></div>' +
+      '<div class="stamp" style="color:' + scoreInk + '">' + esc(gradeText(state.score)) + '</div>' +
+      '<div class="gauge" style="color:' + scoreInk + '"><span class="gauge-fill" data-final="' + state.score + '"></span></div>' +
+      '<div class="gauge-note"><span>0</span><span>50</span><span>100</span></div>' +
       '</div>';
 
     /* summary card */
@@ -1014,9 +1016,9 @@
     /* issues */
     html += '<div class="issues"><div class="issues-head"><h2>' + esc(t('issues')) + '</h2>' +
       '<div class="legend">' +
-      '<span><i style="background:#f87171"></i>' + esc(t('severity').critical) + '</span>' +
-      '<span><i style="background:#fbbf24"></i>' + esc(t('severity').high) + '</span>' +
-      '<span><i style="background:#60a5fa"></i>' + esc(t('severity').medium) + '</span>' +
+      '<span><i style="background:#bd3310"></i>' + esc(t('severity').critical) + '</span>' +
+      '<span><i style="background:#9a6f0b"></i>' + esc(t('severity').high) + '</span>' +
+      '<span><i style="background:#27586f"></i>' + esc(t('severity').medium) + '</span>' +
       '</div></div>';
 
     if (!state.findings.length) {
@@ -1044,11 +1046,11 @@
     result.innerHTML = html;
     result.hidden = false;
 
-    /* animate ring + bars (CSS transitions) + number */
-    var circle = result.querySelector('.ring-value');
+    /* animate the gauge + bars (CSS transitions) and the number */
+    var gauge = result.querySelector('.gauge-fill');
     var bars = result.querySelectorAll('.bar-fill');
     void result.getBoundingClientRect(); /* flush initial styles so transitions run */
-    if (circle) circle.style.strokeDashoffset = circle.getAttribute('data-final');
+    if (gauge) gauge.style.width = gauge.getAttribute('data-final') + '%';
     bars.forEach(function (el) {
       el.style.width = el.getAttribute('data-pct') + '%';
     });
@@ -1071,7 +1073,9 @@
 
   function renderIssue(f, index) {
     var vars = f.vars || {};
+    var num = ('0' + (index + 1)).slice(-2);
     return '<article class="issue ' + f.sev + '">' +
+      '<span class="issue-no" aria-hidden="true">' + num + '</span>' +
       '<div class="issue-top">' +
       '<span class="sev ' + f.sev + '">' + esc(t('severity')[f.sev]) + '</span>' +
       '<span class="issue-cat">' + esc(t('cats')[f.cat]) + '</span>' +
@@ -1162,163 +1166,278 @@
     var color = scoreColor(score);
     var repo = state.ctx.repo;
 
-    var bg = x.createLinearGradient(0, 0, 1200, 630);
-    bg.addColorStop(0, '#0a0f16');
-    bg.addColorStop(1, '#101a26');
-    x.fillStyle = bg;
+    var PAPER = '#f2ebda';
+    var PAPER_HI = '#f8f2e4';
+    var INK = '#17130e';
+    var INK2 = '#3a3227';
+    var MUTED = '#6d6252';
+    var DIM = '#8a7d68';
+    var RULE = '#c6b998';
+    var RED = '#bd3310';
+    var SERIF = '"Literata", Georgia, serif';
+    var SANS = '"Onest", "Segoe UI", sans-serif';
+    var MONO = '"JetBrains Mono", Consolas, monospace';
+
+    function track(px) {
+      try { x.letterSpacing = px; } catch (e) { }
+    }
+    function fit(str, max) {
+      var s = str;
+      if (x.measureText(s).width <= max) return s;
+      while (s.length > 4 && x.measureText(s + '…').width > max) s = s.slice(0, -2);
+      return s.replace(/[,\s]+$/, '') + '…';
+    }
+
+    /* paper + grid */
+    x.fillStyle = PAPER;
     x.fillRect(0, 0, 1200, 630);
-
-    /* subtle grid */
-    x.strokeStyle = 'rgba(120,160,205,0.06)';
+    var wash = x.createRadialGradient(90, 0, 30, 90, 0, 620);
+    wash.addColorStop(0, 'rgba(201,58,20,0.10)');
+    wash.addColorStop(1, 'rgba(201,58,20,0)');
+    x.fillStyle = wash;
+    x.fillRect(0, 0, 700, 630);
+    x.strokeStyle = 'rgba(23,19,14,0.05)';
     x.lineWidth = 1;
-    for (var gx = 0; gx <= 1200; gx += 60) {
-      x.beginPath(); x.moveTo(gx, 0); x.lineTo(gx, 630); x.stroke();
+    for (var gx = 0; gx <= 1200; gx += 26) {
+      x.beginPath(); x.moveTo(gx + 0.5, 0); x.lineTo(gx + 0.5, 630); x.stroke();
     }
-    for (var gy = 0; gy <= 630; gy += 60) {
-      x.beginPath(); x.moveTo(0, gy); x.lineTo(1200, gy); x.stroke();
+    for (var gy = 0; gy <= 630; gy += 26) {
+      x.beginPath(); x.moveTo(0, gy + 0.5); x.lineTo(1200, gy + 0.5); x.stroke();
     }
-
-    /* glow */
-    var glow = x.createRadialGradient(980, 300, 40, 980, 300, 420);
-    glow.addColorStop(0, 'rgba(110,231,183,0.14)');
-    glow.addColorStop(1, 'rgba(110,231,183,0)');
-    x.fillStyle = glow;
-    x.fillRect(600, 0, 600, 630);
 
     /* brand */
-    x.fillStyle = color;
-    x.beginPath();
-    if (x.roundRect) x.roundRect(64, 54, 38, 38, 10); else x.rect(64, 54, 38, 38);
-    x.fill();
-    x.strokeStyle = '#06251a';
-    x.lineWidth = 3.4;
-    x.lineCap = 'round';
-    x.lineJoin = 'round';
-    x.beginPath(); x.moveTo(72, 73); x.lineTo(80, 81); x.lineTo(94, 64); x.stroke();
+    x.fillStyle = INK;
+    x.fillRect(56, 34, 22, 22);
+    x.strokeStyle = PAPER_HI;
+    x.lineWidth = 2.6;
+    x.lineCap = 'square';
+    x.lineJoin = 'miter';
+    x.beginPath(); x.moveTo(61, 45); x.lineTo(66, 50); x.lineTo(74, 39); x.stroke();
 
-    x.fillStyle = '#e9f0f9';
-    x.font = '600 26px "Segoe UI", system-ui, sans-serif';
-    x.fillText('LaunchCheck', 116, 82);
+    x.fillStyle = INK;
+    x.font = '700 20px ' + SANS;
+    x.fillText('LaunchCheck', 88, 53);
+    x.fillStyle = DIM;
+    x.font = '500 10px ' + MONO;
+    track('1.6px');
+    x.fillText('/ REPO INSPECTION', 213, 52);
+    track('0px');
 
-    x.fillStyle = '#64788d';
-    x.font = '400 18px ui-monospace, Consolas, monospace';
-    x.fillText(('github.com/' + repo.full_name).slice(0, 64), 64, 140);
+    x.textAlign = 'right';
+    x.fillStyle = MUTED;
+    x.font = '400 11px ' + MONO;
+    x.fillText(fit('github.com/' + repo.full_name, 420), 1144, 52);
+    x.textAlign = 'left';
+
+    x.fillStyle = INK;
+    x.fillRect(56, 76, 1088, 2);
+    x.fillStyle = RULE;
+    x.fillRect(56, 81, 1088, 1);
 
     /* repo name */
-    x.fillStyle = '#e9f0f9';
-    x.font = '700 52px "Segoe UI", system-ui, sans-serif';
-    var title = repo.full_name;
-    while (x.measureText(title).width > 680 && title.length > 6) {
-      title = title.slice(0, -2);
-    }
-    if (title !== repo.full_name) title += '…';
-    x.fillText(title, 64, 210);
+    x.fillStyle = INK;
+    x.font = '700 44px ' + SERIF;
+    track('-1.2px');
+    x.fillText(fit(repo.full_name, 660), 56, 142);
+    track('0px');
 
     /* description */
     if (repo.description) {
-      x.fillStyle = '#8fa3b8';
-      x.font = '400 22px "Segoe UI", system-ui, sans-serif';
+      x.fillStyle = INK2;
+      x.font = '400 19px ' + SANS;
       var words = repo.description.split(/\s+/);
       var line = '';
       var lines = [];
-      for (var i = 0; i < words.length; i++) {
-        var test = line ? line + ' ' + words[i] : words[i];
-        if (x.measureText(test).width > 640) { lines.push(line); line = words[i]; }
-        else line = test;
-        if (lines.length >= 2) break;
+      for (var wi = 0; wi < words.length; wi++) {
+        var test = line ? line + ' ' + words[wi] : words[wi];
+        if (x.measureText(test).width > 620) {
+          if (line) lines.push(line);
+          line = words[wi];
+          if (lines.length >= 2) break;
+        } else {
+          line = test;
+        }
       }
       if (lines.length < 2 && line) lines.push(line);
-      if (lines.length === 2 && lines[1].length && (i < words.length)) {
+      if (lines.length === 2 && wi < words.length) {
         var last = lines[1];
-        while (last.length > 4 && x.measureText(last + '…').width > 640) last = last.slice(0, -2);
+        while (last.length > 4 && x.measureText(last + '…').width > 620) last = last.slice(0, -2);
         lines[1] = last.replace(/[,\s]+$/, '') + '…';
       }
-      lines.forEach(function (l, idx) { x.fillText(l, 64, 258 + idx * 30); });
+      lines.forEach(function (l, idx) { x.fillText(l, 56, 180 + idx * 27); });
     }
 
-    /* score ring */
-    var cx = 960, cy = 300, r = 118;
-    x.strokeStyle = 'rgba(140,170,200,0.16)';
-    x.lineWidth = 16;
-    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke();
-    x.strokeStyle = color;
-    x.lineCap = 'round';
-    x.beginPath();
-    x.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * score) / 100);
-    x.stroke();
+    /* category ledger */
+    x.fillStyle = DIM;
+    x.font = '500 10px ' + MONO;
+    track('1.6px');
+    x.fillText('BY CATEGORY', 56, 250);
+    track('0px');
 
-    x.fillStyle = color;
-    x.font = '750 92px "Segoe UI", system-ui, sans-serif';
-    x.textAlign = 'center';
-    x.fillText(String(score), cx, cy + 14);
-    x.fillStyle = '#64788d';
-    x.font = '400 16px "Segoe UI", system-ui, sans-serif';
-    x.fillText('/ 100', cx, cy + 46);
-    x.textAlign = 'left';
-
-    /* bars */
-    var bx = 64, by = 352, bw = 440, bh = 8, gap = 34;
+    var bx = 220, bw = 372, by = 282, gap = 38;
     CATS.forEach(function (cat, idx) {
       var cs = state.catScores[cat.id];
       var yy = by + idx * gap;
-      x.fillStyle = '#8fa3b8';
-      x.font = '400 17px "Segoe UI", system-ui, sans-serif';
-      x.fillText(t('cats')[cat.id], bx, yy);
-      x.fillStyle = 'rgba(140,170,200,0.14)';
-      x.beginPath();
-      if (x.roundRect) x.roundRect(bx + 170, yy - 13, bw, bh, 4); else x.rect(bx + 170, yy - 13, bw, bh);
-      x.fill();
-      x.fillStyle = catColor(cs.earned, cs.max);
+      var ccol = catColor(cs.earned, cs.max);
+
+      x.font = '400 13.5px ' + SANS;
+      x.fillStyle = INK2;
+      x.fillText(fit(t('cats')[cat.id], 150), 56, yy);
+
+      /* ruler track */
+      x.strokeStyle = RULE;
+      x.lineWidth = 1;
+      x.beginPath(); x.moveTo(bx, yy + 1.5); x.lineTo(bx + bw, yy + 1.5); x.stroke();
+      x.strokeStyle = 'rgba(23,19,14,0.30)';
+      for (var tI = 0; tI <= 10; tI++) {
+        var tx = bx + (bw / 10) * tI;
+        x.beginPath(); x.moveTo(tx + 0.5, yy - 3); x.lineTo(tx + 0.5, yy + 1.5); x.stroke();
+      }
+
+      /* filled portion */
       var w = Math.max(2, (bw * cs.earned) / cs.max);
-      x.beginPath();
-      if (x.roundRect) x.roundRect(bx + 170, yy - 13, w, bh, 4); else x.rect(bx + 170, yy - 13, w, bh);
-      x.fill();
-      x.fillStyle = '#64788d';
-      x.font = '400 15px ui-monospace, Consolas, monospace';
-      x.fillText(cs.earned + '/' + cs.max, bx + 170 + bw + 14, yy + 1);
+      x.fillStyle = ccol;
+      x.fillRect(bx, yy - 7, w, 8.5);
+
+      x.font = '500 10.5px ' + MONO;
+      x.fillStyle = MUTED;
+      x.fillText(cs.earned + '/' + cs.max, bx + bw + 16, yy + 1);
     });
 
-    /* footer */
-    x.fillStyle = '#64788d';
-    x.font = '400 16px "Segoe UI", system-ui, sans-serif';
-    x.fillText(fmt(t('cardFooter'), { host: location.host || 'launchcheck' }), 64, 588);
+    /* score panel */
+    var px = 760, py = 112, pw = 384, ph = 386;
+    x.fillStyle = PAPER_HI;
+    x.fillRect(px, py, pw, ph);
+    x.strokeStyle = INK;
+    x.lineWidth = 2;
+    x.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+
+    x.fillStyle = MUTED;
+    x.font = '500 9.5px ' + MONO;
+    track('1.8px');
+    x.fillText('SCORE', px + 24, py + 30);
     x.textAlign = 'right';
-    x.fillText(dateStr(new Date().toISOString()), 1136, 588);
+    x.fillText('LC·01', px + pw - 24, py + 30);
     x.textAlign = 'left';
+    track('0px');
+
+    var cx = px + pw / 2;
+    x.fillStyle = color;
+    x.font = '700 132px ' + SERIF;
+    x.textAlign = 'center';
+    track('-6px');
+    x.fillText(String(score), cx, py + 172);
+    track('0px');
+
+    x.fillStyle = DIM;
+    x.font = '500 11px ' + MONO;
+    track('1.4px');
+    x.fillText('/ 100', cx, py + 196);
+    track('0px');
+
+    /* verdict stamp */
+    var label = gradeText(score).toUpperCase();
+    x.save();
+    x.translate(cx, py + 252);
+    x.rotate(-3 * Math.PI / 180);
+    x.font = '600 13px ' + MONO;
+    track('1.4px');
+    var tw = x.measureText(label).width;
+    var sw = tw + 30, sh = 36;
+    x.strokeStyle = color;
+    x.lineWidth = 2;
+    x.strokeRect(-sw / 2, -sh / 2, sw, sh);
+    x.lineWidth = 1;
+    x.strokeRect(-sw / 2 + 4, -sh / 2 + 4, sw - 8, sh - 8);
+    x.fillStyle = color;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillText(label, 0, 1);
+    x.restore();
+    track('0px');
+    x.textAlign = 'left';
+    x.textBaseline = 'alphabetic';
+
+    /* gauge */
+    var gx0 = px + 24, gw = pw - 48, gy0 = py + 320, gh = 14;
+    x.fillStyle = PAPER;
+    x.fillRect(gx0, gy0, gw, gh);
+    x.fillStyle = color;
+    x.fillRect(gx0, gy0, Math.max(2, gw * score / 100), gh);
+    x.strokeStyle = INK;
+    x.lineWidth = 1;
+    x.strokeRect(gx0 + 0.5, gy0 + 0.5, gw - 1, gh - 1);
+    x.strokeStyle = 'rgba(23,19,14,0.55)';
+    for (var gi = 1; gi < 10; gi++) {
+      var gtx = gx0 + (gw / 10) * gi;
+      x.beginPath(); x.moveTo(gtx + 0.5, gy0 + gh - 6); x.lineTo(gtx + 0.5, gy0 + gh - 1); x.stroke();
+    }
+    x.fillStyle = DIM;
+    x.font = '500 9px ' + MONO;
+    x.fillText('0', gx0, gy0 + 26);
+    x.textAlign = 'center';
+    x.fillText('50', gx0 + gw / 2, gy0 + 26);
+    x.textAlign = 'right';
+    x.fillText('100', gx0 + gw, gy0 + 26);
+    x.textAlign = 'left';
+
+    /* footer */
+    x.fillStyle = INK;
+    x.fillRect(56, 548, 1088, 1);
+    x.fillStyle = MUTED;
+    x.font = '400 11px ' + MONO;
+    track('0.4px');
+    x.fillText(fmt(t('cardFooter'), { host: location.host || 'launchcheck' }), 56, 576);
+    x.fillStyle = DIM;
+    x.textAlign = 'center';
+    x.fillText('DETERMINISTIC AUDIT · NO AI', 600, 576);
+    x.textAlign = 'right';
+    x.fillText(dateStr(new Date().toISOString()), 1144, 576);
+    x.textAlign = 'left';
+    track('0px');
 
     return canvas;
   }
 
-  function downloadCard() {
-    var canvas = drawCard();
-    if (canvas.toBlob) {
-      canvas.toBlob(function (blob) {
-        if (blob) downloadBlob(blob, slug(state.ctx.repo.name) + '-launchcheck.png', t('cardDone'));
-      }, 'image/png');
-    } else {
-      var a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = slug(state.ctx.repo.name) + '-launchcheck.png';
-      a.click();
-      toast(t('cardDone'));
+  function withFonts(fn) {
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(fn, fn);
+      return;
     }
+    fn();
+  }
+
+  function downloadCard() {
+    withFonts(function () {
+      var canvas = drawCard();
+      if (canvas.toBlob) {
+        canvas.toBlob(function (blob) {
+          if (blob) downloadBlob(blob, slug(state.ctx.repo.name) + '-launchcheck.png', t('cardDone'));
+        }, 'image/png');
+      } else {
+        var a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = slug(state.ctx.repo.name) + '-launchcheck.png';
+        a.click();
+        toast(t('cardDone'));
+      }
+    });
   }
 
   function badgeSvg() {
     var score = state.score;
     var color = scoreColor(score);
-    var label = 'launchcheck';
+    var label = 'LAUNCHCHECK';
     var value = score + '/100';
-    var w = 210;
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="28" role="img" aria-label="' + label + ': ' + value + '">' +
-      '<title>' + label + ': ' + value + '</title>' +
-      '<rect width="' + w + '" height="28" rx="6" fill="#0b1119"/>' +
-      '<rect x="98" width="' + (w - 98) + '" height="28" rx="6" fill="' + color + '"/>' +
-      '<rect x="98" width="12" height="28" fill="' + color + '"/>' +
-      '<g fill="#06251a" font-family="Segoe UI, system-ui, sans-serif" font-size="12" font-weight="600">' +
-      '<text x="14" y="18">' + label + '</text></g>' +
-      '<g fill="#06251a" font-family="ui-monospace, Consolas, monospace" font-size="12" font-weight="700">' +
-      '<text x="112" y="18">' + value + '</text></g>' +
+    var w = 224;
+    var mono = "JetBrains Mono, ui-monospace, Consolas, monospace";
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="30" role="img" aria-label="LaunchCheck: ' + value + '">' +
+      '<title>LaunchCheck: ' + value + '</title>' +
+      '<rect x="0.75" y="0.75" width="' + (w - 1.5) + '" height="28.5" fill="#f2ebda" stroke="#17130e" stroke-width="1.5"/>' +
+      '<rect x="130" y="0" width="' + (w - 130) + '" height="30" fill="' + color + '"/>' +
+      '<rect x="12" y="12" width="6" height="6" fill="#bd3310"/>' +
+      '<text x="24" y="20" fill="#17130e" font-family="' + mono + '" font-size="10.5" font-weight="600" letter-spacing="1.2">' + label + '</text>' +
+      '<text x="197" y="20.5" fill="#f8f2e4" text-anchor="middle" font-family="' + mono + '" font-size="12" font-weight="700" letter-spacing="0.3">' + value + '</text>' +
       '</svg>';
   }
 
@@ -1388,6 +1507,8 @@
     document.documentElement.lang = state.lang;
     document.body.className = 'lang-' + state.lang;
     $('langBtn').textContent = state.lang === 'ru' ? 'EN' : 'RU';
+    $('langBtn').setAttribute('aria-label', state.lang === 'ru' ? 'EN / English' : 'RU / Русский');
+    $('langBtn').title = state.lang === 'ru' ? 'Переключить на английский' : 'Switch to Russian';
 
     document.querySelectorAll('[data-i18n]').forEach(function (el) {
       var key = el.getAttribute('data-i18n');

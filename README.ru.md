@@ -112,3 +112,5 @@ Issues и pull requests приветствуются. Самое полезно�
 ## Лицензия
 
 [MIT](LICENSE)
+
+Шрифты: Literata, Onest и JetBrains Mono — лежат локально в `assets/fonts/`, лицензия SIL Open Font License 1.1 (см. [assets/fonts/OFL.txt](assets/fonts/OFL.txt)).

@@ -15,8 +15,9 @@
 <meta property="og:url" content="https://tizz13.github.io/launchcheck/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f14'/%3E%3Cpath d='M18 33l9 9 19-21' fill='none' stroke='%236ee7b7' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/styles.css?v=11">
+<meta name="theme-color" content="#f2ebda">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f2ebda'/%3E%3Crect x='5' y='5' width='54' height='54' fill='none' stroke='%2317130e' stroke-width='4'/%3E%3Cpath d='M19 34l9 9 18-21' fill='none' stroke='%23c93a14' stroke-width='7' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/styles.css?v=12">
 </head>
 <body>
 <script>
@@ -41,7 +42,7 @@
 
   <div class="top-right">
     <span id="rate" class="rate" title="Остаток запросов к GitHub API">API —</span>
-    <button id="langBtn" class="ghost" type="button" aria-label="Switch language">EN</button>
+    <button id="langBtn" class="ghost" type="button" aria-label="EN / English" title="Переключить на английский">EN</button>
     <button id="settingsBtn" class="ghost icon" type="button" aria-label="Настройки" title="Настройки">
       <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a7.9 7.9 0 0 0 .05-3l1.8-1.35-1.9-3.3-2.15.85a7.7 7.7 0 0 0-2.6-1.5L14.3 2.8h-3.8l-.3 2.4a7.7 7.7 0 0 0-2.6 1.5l-2.15-.85-1.9 3.3L5.35 10.5a7.9 7.9 0 0 0 0 3L3.55 14.85l1.9 3.3 2.15-.85a7.7 7.7 0 0 0 2.6 1.5l.3 2.4h3.8l.3-2.4a7.7 7.7 0 0 0 2.6-1.5l2.15.85 1.9-3.3-1.85-1.35Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
     </button>
@@ -50,26 +51,39 @@
 
 <main class="wrap">
   <section class="hero">
-    <p class="kicker"><span class="dot"></span><span data-i18n="kicker">Бесплатно · без установки · без регистрации</span></p>
-    <h1 data-i18n-html="h1">Проверь проект<br>до того, как его увидят</h1>
-    <p class="lead" data-i18n="lead">Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.</p>
+    <div class="hero-main">
+      <p class="kicker"><span class="dot"></span><span data-i18n="kicker">Бесплатно · без установки · без регистрации</span></p>
+      <h1 data-i18n-html="h1">Проверь проект<br>до того, как его увидят</h1>
+      <p class="lead" data-i18n="lead">Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.</p>
 
-    <form id="form" class="search" autocomplete="off">
-      <div class="field">
-        <svg class="field-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <input id="repoInput" name="repo" type="text" spellcheck="false"
-               placeholder="owner/repo or a GitHub link"
-               aria-label="GitHub repository" autofocus>
-      </div>
-      <button id="go" class="primary" type="submit">
-        <span class="primary-label" data-i18n="check">Проверить</span>
-        <span class="spinner" aria-hidden="true"></span>
-      </button>
-    </form>
+      <form id="form" class="search" autocomplete="off">
+        <div class="field">
+          <svg class="field-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input id="repoInput" name="repo" type="text" spellcheck="false"
+                 placeholder="owner/repo or a GitHub link"
+                 aria-label="GitHub repository" autofocus>
+        </div>
+        <button id="go" class="primary" type="submit">
+          <span class="primary-label" data-i18n="check">Проверить</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+      </form>
 
-    <div class="chips" id="chips" aria-label="Примеры"></div>
+      <div class="chips" id="chips" aria-label="Примеры"></div>
 
-    <p class="hint" data-i18n="hint">Работает с публичными репозиториями. Приватные — добавь токен в настройках.</p>
+      <p class="hint" data-i18n="hint">Работает с публичными репозиториями. Приватные — добавь токен в настройках.</p>
+    </div>
+
+    <aside class="margin-note">
+      <p class="mn-head" data-i18n="noteHead">Полевая заметка 01</p>
+      <p class="mn-title" data-i18n="noteTitle">Три вопроса, на которые отвечает отчёт</p>
+      <ol>
+        <li data-i18n="note1">Запустится ли проект с чистого клона?</li>
+        <li data-i18n="note2">Нет ли в репозитории секретов?</li>
+        <li data-i18n="note3">Поверит ли этому незнакомый человек?</li>
+      </ol>
+      <p class="mn-foot" data-i18n="noteFoot">23 правила · без ИИ</p>
+    </aside>
   </section>
 
   <section id="status" class="status" hidden aria-live="polite"></section>
@@ -168,6 +182,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="assets/app.js?v=11" defer></script>
+<script src="assets/app.js?v=12" defer></script>
 </body>
 </html>
