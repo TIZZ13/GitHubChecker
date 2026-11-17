@@ -939,7 +939,7 @@
     return '#f87171';
   }
 
-  function render() {
+  function render(animate) {
     var ctx = state.ctx;
     if (!ctx) return;
     var repo = ctx.repo;
@@ -1040,7 +1040,8 @@
     bars.forEach(function (el) {
       el.style.width = el.getAttribute('data-pct') + '%';
     });
-    animateNumber($('scoreNum'), state.score);
+    if (animate === false) $('scoreNum').textContent = state.score;
+    else animateNumber($('scoreNum'), state.score);
 
     /* bind actions */
     var btnCard = $('btnCard'); if (btnCard) btnCard.addEventListener('click', downloadCard);
@@ -1386,7 +1387,7 @@
 
     if (state.ctx) {
       computeScore();
-      render();
+      render(false);
     }
     renderRate();
   }
