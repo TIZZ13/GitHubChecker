@@ -209,6 +209,11 @@ The card never says "safe" or "no viruses". It says "no risk signals were found"
 
 Comments are stripped before scanning. A call is **declared** when the README or description mentions the matching behaviour (network, reboot, keyboard, registry, fullscreen, restore, delete…). Undeclared high-risk calls are critical; undeclared medium-risk calls are a partial deduction.
 
+Two accuracy rules keep the scan honest:
+
+- **Test files are not scanned.** A fixture such as `Process.Start("shutdown", "/r /f")` inside `tests/` is not behaviour that runs on the user's machine.
+- **Regex literals that contain alternation or a word boundary are ignored.** A scanner, a linter rule set or a pattern list contains the names of dangerous APIs without calling them, and must not flag itself.
+
 ## What is intentionally not checked
 
 - Actual code quality, architecture, performance or accessibility of the product.

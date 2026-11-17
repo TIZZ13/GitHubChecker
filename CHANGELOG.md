@@ -32,6 +32,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - The "CI does not run tests" check no longer fires when the repository has no workflow at all. `No CI` already covers that case, and the old rule deducted the points twice.
 - A screenshot referenced by the README and present in the repository counts once, not twice.
 - The claims check is skipped with a reason when the description and the README are written in different languages, instead of comparing a Russian description with an English README word by word.
+- The risk scan no longer flags a project for the names of dangerous functions in its own rule table: test files are not scanned, regex patterns are ignored, `.profile` as an object property is not a shell profile, and a localStorage key like `launchcheck.token` is not a hardcoded credential.
 - Russian plurals: "4 файла", "2 скриншота", "8 дней назад" instead of the wrong forms, in the profile card and in the issue text.
 - The empty state renders as one sentence instead of one word per line, and a zero-value category bar no longer shows a stray nub.
 

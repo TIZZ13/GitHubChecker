@@ -48,6 +48,10 @@ test('scanText finds a hardcoded credential but not a short one', () => {
   assert.deepStrictEqual(scanText('password: "short"'), []);
 });
 
+test('scanText does not treat a dotted storage key as a credential', () => {
+  assert.deepStrictEqual(scanText("var LS = { token: 'launchcheck.token' };"), []);
+});
+
 test('fmt replaces only known placeholders', () => {
   assert.strictEqual(fmt('{repo} — {score}/100', { repo: 'a/b', score: 54 }), 'a/b — 54/100');
   assert.strictEqual(fmt('{missing}', {}), '');
@@ -151,6 +155,25 @@ test('scanRisk accepts a declared high-risk action', () => {
   );
   assert.deepStrictEqual(risk.undeclaredHigh, []);
   assert.deepStrictEqual(risk.declared.map(r => r.id), ['power']);
+});
+
+test('scanRisk does not flag a rule table or a .profile property as behaviour', () => {
+  const src = [
+    'var RULES = [',
+    '  { id: "masquerade", re: /(WUDFHost|svchost\\.exe)/i },',
+    '  { id: "injection", re: /CreateRemoteThread|WriteProcessMemory/i }',
+    '];',
+    'masquerade: /(WUDFHost|LOCALAPPDATA)/i,',
+    'var p = ctx.profile;',
+    'const label = "system shutdown or reboot";'
+  ].join('\n');
+  const risk = scanRisk([{ path: 'assets/app.js', text: src }], '');
+  assert.deepStrictEqual(risk.all.map(r => r.id), []);
+});
+
+test('scanRisk still sees a real reboot command at the start of a line', () => {
+  const risk = scanRisk([{ path: 'deploy.sh', text: '#!/bin/sh\nreboot -f\n' }], '');
+  assert.deepStrictEqual(risk.all.map(r => r.id), ['power']);
 });
 
 /* ---------- project profile ---------- */

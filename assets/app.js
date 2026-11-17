@@ -465,6 +465,12 @@
       while ((m = p.re.exec(text)) !== null) {
         var value = m[0];
         if (PLACEHOLDER.test(value)) continue;
+        if (p.kind === 'hardcoded credential') {
+          var lit = /['"]([^'"]*)['"]\s*$/.exec(value);
+          /* Reject dotted identifiers such as localStorage keys: a real secret
+             is not shaped like `launchcheck.token`. */
+          if (lit && /^[a-z][\w-]*(\.[a-z][\w-]*)+$/i.test(lit[1])) continue;
+        }
         hits.push(p.kind);
         break; /* one hit per pattern per file is enough */
       }
@@ -794,7 +800,7 @@
     {
       id: 'persistence', level: 'high',
       label: M('автозапуск', 'autostart'),
-      re: /(CurrentVersion\\+Run|schtasks\s+\/create|\bsc\s+create\b|LaunchAgents|LaunchDaemons|systemd\/system|\.bashrc|\.profile\b)/i
+      re: /(CurrentVersion\\+Run|schtasks\s+\/create|\bsc\s+create\b|LaunchAgents|LaunchDaemons|systemd\/system|\.bashrc|(^|[\s"'`/])\.profile\b)/i
     },
     {
       id: 'injection', level: 'high',
@@ -814,7 +820,7 @@
     {
       id: 'power', level: 'high',
       label: M('выключение или перезагрузка системы', 'system shutdown or reboot'),
-      re: /\bshutdown\b[^\n]{0,30}\/[rsf]\b|\b(ExitWindowsEx|InitiateSystemShutdown|bcdedit|vssadmin|poweroff|reboot)\b/i
+      re: /\bshutdown\b[^\n]{0,30}\/[rsf]\b|\b(ExitWindowsEx|InitiateSystemShutdown|bcdedit|vssadmin)\b|(^|[;&|]\s*)(reboot|poweroff|halt)\b/im
     },
     {
       id: 'keyboard', level: 'medium',
@@ -861,7 +867,13 @@
     return String(text || '')
       .replace(/\/\*[\s\S]*?\*\//g, ' ')
       .replace(/(^|[^:])\/\/[^\n]*/gm, '$1 ')
-      .replace(/^[ \t]*#[^\n]*/gm, ' ');
+      .replace(/^[ \t]*#[^\n]*/gm, ' ')
+      /* Regex literals that look like a rule (alternation or word boundary) are
+         patterns, not behaviour. Without this a scanner or a pattern list flags
+         itself with every rule it contains. */
+      .replace(/\/(?![*/])(?:\\.|[^\/\n\\])+\/[gimsuy]*/g, function (m) {
+        return /\||\\b/.test(m) ? ' ' : m;
+      });
   }
 
   function scanRisk(sources, declaredText) {
@@ -1841,6 +1853,7 @@
     (buildCandidates || []).slice(0, 1).forEach(push);
     var code = paths.filter(function (p) {
       if (!CODE_RE.test(p)) return false;
+      if (TEST_RE.test(p)) return false; /* fixtures in tests are not behaviour */
       if (/(^|\/)(node_modules|vendor|dist|build|coverage|\.git)\//i.test(p)) return false;
       if (/\.min\./i.test(p)) return false;
       return true;
