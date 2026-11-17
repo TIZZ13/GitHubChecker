@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-18
+
 ### Added
 
 - **Downloader mode** — a second audit profile for people who do not write code. 21 checks about whether the ready-made files are worth trusting: open source, undeclared risky calls, checksums, installation instructions, requirements, screenshots, maintenance, licence, whether the claims match the README, and warnings about side effects. It never says a file is safe or virus-free.
@@ -12,6 +14,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Risk scan over the source.** Deterministic patterns for network access, autostart, process injection, obfuscation, masquerading, shutdown, keyboard hooks, registry changes, Explorer control, process launch and file deletion, separated into declared and undeclared behaviour. Comments are stripped before scanning.
 - **Mode switch after an audit.** The report is rebuilt from data already in memory, without new GitHub requests; the mode is stored in `?mode=user` and `localStorage`.
 - Tests for profile detection, README language, claim matching, the risk scan and score normalisation. `docs/checks.md` now documents both profiles.
+- `SECURITY.md` with a private advisory link, the scope of the audit engine and an explicit list of what the project will never do: no downloads, no safety claims.
 
 ### Changed
 
@@ -51,5 +54,6 @@ First public release.
 - Deep links (`?repo=owner/name`) and the last checked repository in `localStorage`.
 - Node test runner suite for URL parsing and the secret scanner, plus a structural check for local assets.
 
-[Unreleased]: https://github.com/TIZZ13/launchcheck/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/TIZZ13/launchcheck/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/TIZZ13/launchcheck/releases/tag/v1.1.0
 [1.0.0]: https://github.com/TIZZ13/launchcheck/releases/tag/v1.0.0
