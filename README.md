@@ -26,6 +26,8 @@ LaunchCheck answers those questions before anyone else has to. It reads the publ
 
 ## What you get
 
+![LaunchCheck report](assets/screenshot-en.jpg)
+
 - **A score out of 100** across six categories, with a color-coded breakdown.
 - **A list of issues in plain language** — what is wrong, why it costs you users, and how bad it is.
 - **A ready-to-paste prompt for every issue**, written for Claude Code, Codex, Cursor or any other agent. Copy one, or copy all and let the agent work through the list.
