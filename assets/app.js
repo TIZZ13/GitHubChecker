@@ -27,10 +27,12 @@
   var UI = {
     ru: {
       kicker: 'Бесплатно · без установки · без регистрации',
+      pageTitle: 'LaunchCheck — проверь проект до того, как его увидят',
       h1: 'Проверь проект<br>до того, как его <em>увидят</em>',
       lead: 'Вставь ссылку на GitHub-репозиторий. Получи оценку по 100-балльной шкале, понятный список проблем и готовые промпты для своего ИИ-агента.',
       check: 'Проверить',
       hint: 'Работает с публичными репозиториями. Приватные — добавь токен в настройках.',
+      placeholder: 'owner/repo или ссылка на GitHub',
       settings: 'Настройки',
       tokenLabel: 'GitHub token (необязательно)',
       tokenHelp: 'Нужен для приватных репозиториев и лимита 5000 запросов в час вместо 60. Хранится только в localStorage этого браузера и уходит только на api.github.com. Хватит scope public_repo.',
@@ -94,10 +96,12 @@
     },
     en: {
       kicker: 'Free · no install · no signup',
+      pageTitle: 'LaunchCheck — audit your GitHub repo before you launch it',
       h1: 'Check your project<br>before people <em>see it</em>',
       lead: 'Paste a GitHub repository link. Get a score out of 100, a plain-language list of problems, and ready-to-paste prompts for your AI agent.',
       check: 'Check',
       hint: 'Works with public repositories. For private ones, add a token in settings.',
+      placeholder: 'owner/repo or a GitHub link',
       settings: 'Settings',
       tokenLabel: 'GitHub token (optional)',
       tokenHelp: 'Needed for private repositories and for 5000 requests/hour instead of 60. Stored only in this browser’s localStorage and sent only to api.github.com. The public_repo scope is enough.',
@@ -1396,6 +1400,9 @@
       if (val) el.innerHTML = val;
     });
 
+    if ($('repoInput')) $('repoInput').placeholder = t('placeholder');
+    if (!state.ctx) document.title = t('pageTitle');
+
     try { localStorage.setItem(LS.lang, state.lang); } catch (e) { }
 
     if (state.ctx) {
@@ -1446,9 +1453,17 @@
 
   function init() {
     try {
-      state.lang = localStorage.getItem(LS.lang) === 'en' ? 'en' : 'ru';
+      var stored = localStorage.getItem(LS.lang);
+      if (stored === 'ru' || stored === 'en') {
+        state.lang = stored;
+      } else {
+        /* first visit: follow the browser, Russian only for Russian speakers */
+        state.lang = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
+      }
       state.token = localStorage.getItem(LS.token) || '';
-    } catch (e) { }
+    } catch (e) {
+      state.lang = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
+    }
 
     applyLang(state.lang);
 
