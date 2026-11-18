@@ -2833,7 +2833,7 @@
 
     var html = '<div class="safety-card">' +
       '<div class="safety-head"><h2>' + esc(t('safetyHead')) + '</h2>' +
-      '<span class="profile-label">LC·02</span></div>' +
+      '<span class="profile-label">GC·02</span></div>' +
       '<ul class="safety-list">';
     items.forEach(function (line) { html += '<li>' + esc(line) + '</li>'; });
     html += '</ul>';
@@ -3249,7 +3249,7 @@
     track('1.8px');
     x.fillText('SCORE / ' + t(state.mode === 'user' ? 'modeShortUser' : 'modeShortDev'), px + 24, py + 30);
     x.textAlign = 'right';
-    x.fillText('LC·01', px + pw - 24, py + 30);
+    x.fillText('GC·01', px + pw - 24, py + 30);
     x.textAlign = 'left';
     track('0px');
 
