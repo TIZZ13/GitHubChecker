@@ -142,6 +142,7 @@
       safetyNotGuarantee: 'Это не гарантия безопасности. Решение запускать файл всегда за тобой.',
       liveHead: 'Проверка на вирусы',
       liveSource: 'AlienVault OTX',
+      liveBeta: 'БЕТА',
       liveNote: 'SHA-256 каждого файла сверяется с AlienVault OTX. Вердикт дают только антивирусы ClamAV и Microsoft Defender; YARA и классификаторы не считаются детекциями. Файл не скачивается — уходит только хеш.',
       liveChecking: 'Проверяю…',
       liveLoading: 'Проверяю файлы на вирусы…',
@@ -311,6 +312,7 @@
       safetyNotGuarantee: 'This is not a safety guarantee. The decision to run a file is always yours.',
       liveHead: 'Virus check',
       liveSource: 'AlienVault OTX',
+      liveBeta: 'BETA',
       liveNote: 'The SHA-256 of each file is looked up in AlienVault OTX. Only the antivirus engines ClamAV and Microsoft Defender give a verdict; YARA rules and classifiers are not detections. The file is never downloaded — only its hash is sent.',
       liveChecking: 'Checking…',
       liveLoading: 'Checking the files for viruses…',
@@ -2670,7 +2672,10 @@
     var html = '<div class="live-card" id="liveCheck" aria-live="polite">' +
       '<div class="live-head"><h3>' + esc(t('liveHead')) + '</h3>' +
       '<span class="live-src">' + esc(t('liveSource')) + '</span>' +
+      '<span class="live-meta">' +
+      '<span class="live-beta">' + esc(t('liveBeta')) + '</span>' +
       (head ? '<span class="live-progress">' + esc(head) + '</span>' : '') +
+      '</span>' +
       '</div>' +
       liveSummary(live) +
       liveCoverage(live) +
