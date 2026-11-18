@@ -6,7 +6,7 @@ GitHub Checker is a static page. It has no backend, no accounts and no database.
 
 Please do not open a public issue for a security problem. Use GitHub's private reporting instead:
 
-**https://github.com/TIZZ13/launchcheck/security/advisories/new**
+**https://github.com/TIZZ13/GitHubChecker/security/advisories/new**
 
 Include the page or repository that triggers the problem, what you expected and what happened. A short reproduction is more useful than a long report.
 

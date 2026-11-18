@@ -8,7 +8,7 @@ In downloader mode the page also checks the release files themselves: each file'
 
 No signup. No install. No backend. No analytics.
 
-[**Try it →**](https://tizz13.github.io/launchcheck/) · [Русская версия](#русский)
+[**Try it →**](https://tizz13.github.io/GitHubChecker/) · [Русская версия](#русский)
 
 ![GitHub Checker](assets/og.jpg)
 
@@ -109,8 +109,8 @@ Anonymous GitHub API allows 60 requests per hour, which is roughly 6–10 audits
 No build step, no dependencies:
 
 ```bash
-git clone https://github.com/TIZZ13/launchcheck.git
-cd launchcheck
+git clone https://github.com/TIZZ13/GitHubChecker.git
+cd GitHubChecker
 python -m http.server 8765
 # open http://127.0.0.1:8765
 ```
@@ -155,6 +155,6 @@ Typefaces: Literata, Onest and JetBrains Mono — self-hosted from `assets/fonts
 
 Два режима: **автор** (починить свой проект) и **скачиваю** (решить, стоит ли доверять чужим файлам). Режим переключается после проверки — балл пересчитывается из уже загруженных данных, без новых запросов.
 
-Без регистрации, без установки, без бэкенда, без аналитики. [Открыть сайт →](https://tizz13.github.io/launchcheck/)
+Без регистрации, без установки, без бэкенда, без аналитики. [Открыть сайт →](https://tizz13.github.io/GitHubChecker/)
 
 Полное описание на русском: [README.ru.md](README.ru.md).

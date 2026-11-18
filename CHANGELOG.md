@@ -11,7 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- The project is now **GitHub Checker**. The product name changed everywhere: page title, header, footer, share card, SVG badge, download file names, docs, issue templates and launch copy. The repository and the Pages URL stay `TIZZ13/launchcheck` so existing links keep working.
+- The project is now **GitHub Checker**. The product name changed everywhere: page title, header, footer, share card, SVG badge, download file names, docs, issue templates and launch copy. The repository is renamed to `TIZZ13/GitHubChecker`, so the site now lives at `https://tizz13.github.io/GitHubChecker/`; the previous Pages address forwards to it.
 - Browser storage keys moved to `githubchecker.*` with a one-time read of the old `launchcheck.*` keys, so language, mode and a saved token survive the rename.
 - Downloader-mode wording no longer says a file can only be checked with an antivirus: it now describes what the hash lookup does, and the safety brief separates integrity (checksums, signature) from reputation (databases, sandboxes).
 
@@ -65,6 +65,6 @@ First public release.
 - Deep links (`?repo=owner/name`) and the last checked repository in `localStorage`.
 - Node test runner suite for URL parsing and the secret scanner, plus a structural check for local assets.
 
-[Unreleased]: https://github.com/TIZZ13/launchcheck/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/TIZZ13/launchcheck/releases/tag/v1.1.0
-[1.0.0]: https://github.com/TIZZ13/launchcheck/releases/tag/v1.0.0
+[Unreleased]: https://github.com/TIZZ13/GitHubChecker/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/TIZZ13/GitHubChecker/releases/tag/v1.1.0
+[1.0.0]: https://github.com/TIZZ13/GitHubChecker/releases/tag/v1.0.0

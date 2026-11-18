@@ -71,7 +71,7 @@
       modeUser: 'Скачиваю',
       modeUserSub: 'стоит ли доверять',
       modeBlurbDev: 'Проверка перед публикацией: что мешает проекту выглядеть готовым и что исправить в первую очередь.',
-      modeBlurbUser: 'Проверка перед скачиванием: что известно о коде, файлах и репутации проекта. Это не проверка на вирусы.',
+      modeBlurbUser: 'Проверка перед скачиванием: что известно о коде, файлах и репутации проекта, включая проверку хешей файлов в базах угроз и вердикты антивирусных движков.',
       modeFlagDev: 'Проверка автора',
       modeFlagUser: 'Проверка перед скачиванием',
       modeShortDev: 'AUTHOR',
@@ -163,7 +163,7 @@
       liveProgress: 'Проверено {n} из {m}',
       unitMb: 'МБ', unitKb: 'КБ', unitB: 'Б',
       userHeader: 'GitHub Checker — проверка перед скачиванием: {repo}, {score}/100',
-      userIntro: 'Это не гарантия безопасности и не проверка на вирусы. Ниже — что известно о проекте и что стоит сделать перед запуском.',
+      userIntro: 'Это не гарантия безопасности. Ниже — что известно о проекте, что говорят базы угроз о файлах и что стоит сделать перед запуском.',
       gradesUser: { great: 'Можно пробовать осторожно', good: 'Сначала проверь', meh: 'Много вопросов', bad: 'Лучше не запускать' },
       card: 'Скачать карточку',
       badge: 'Скачать бейдж',
@@ -212,7 +212,7 @@
       modeUser: 'I am downloading',
       modeUserSub: 'should I trust it',
       modeBlurbDev: 'A check before publishing: what keeps the project from looking ready, and what to fix first.',
-      modeBlurbUser: 'A check before downloading: what is known about the code, files and reputation. This is not a virus scan.',
+      modeBlurbUser: 'A check before downloading: what is known about the code, files and reputation, including a hash lookup in threat databases and antivirus engine verdicts.',
       modeFlagDev: 'Author audit',
       modeFlagUser: 'Download check',
       modeShortDev: 'AUTHOR',
@@ -304,7 +304,7 @@
       liveProgress: 'Checked {n} of {m}',
       unitMb: 'MB', unitKb: 'KB', unitB: 'B',
       userHeader: 'GitHub Checker — pre-download check: {repo}, {score}/100',
-      userIntro: 'This is not a safety guarantee and not a virus scan. Below is what is known about the project and what to do before running it.',
+      userIntro: 'This is not a safety guarantee. Below is what is known about the project, what threat databases say about its files, and what to do before running it.',
       gradesUser: { great: 'Try with care', good: 'Check first', meh: 'Many questions', bad: 'Better not run' },
       card: 'Download card',
       badge: 'Download badge',
@@ -2534,7 +2534,7 @@
     html += '</div>';
 
     html += '<div class="cta"><p>' + esc(t('cta')) + '</p>' +
-      '<a class="ghost" href="https://github.com/TIZZ13/launchcheck" target="_blank" rel="noopener">' +
+      '<a class="ghost" href="https://github.com/TIZZ13/GitHubChecker" target="_blank" rel="noopener">' +
       esc(t('ctaBtn')) + '</a></div>';
 
     result.innerHTML = html;
@@ -3199,7 +3199,7 @@
       if (e.key === 'Escape' && !$('modal').hidden) closeSettings();
     });
 
-    $('ghLink').href = 'https://github.com/' + (location.hostname.split('.')[0] === 'tizz13' ? 'TIZZ13/launchcheck' : 'TIZZ13/launchcheck');
+    $('ghLink').href = 'https://github.com/TIZZ13/GitHubChecker';
 
     /* deep link + last repo */
     var deep = params.get('repo');

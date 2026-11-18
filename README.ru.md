@@ -8,7 +8,7 @@
 
 Без регистрации, без установки, без бэкенда, без аналитики.
 
-[**Открыть сайт →**](https://tizz13.github.io/launchcheck/) · [English](README.md)
+[**Открыть сайт →**](https://tizz13.github.io/GitHubChecker/) · [English](README.md)
 
 ![GitHub Checker](assets/og.jpg)
 
@@ -109,8 +109,8 @@ GitHub Checker отвечает на них до того, как их зада�
 Сборки и зависимостей нет:
 
 ```bash
-git clone https://github.com/TIZZ13/launchcheck.git
-cd launchcheck
+git clone https://github.com/TIZZ13/GitHubChecker.git
+cd GitHubChecker
 python -m http.server 8765
 # открыть http://127.0.0.1:8765
 ```

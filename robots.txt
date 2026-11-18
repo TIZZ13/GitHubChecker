@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tizz13.github.io/launchcheck/sitemap.xml
+Sitemap: https://tizz13.github.io/GitHubChecker/sitemap.xml
