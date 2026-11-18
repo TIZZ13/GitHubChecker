@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- **Live file check in downloader mode.** GitHub publishes a `sha256` digest for every release asset, so each file is identified without downloading it. The hash is looked up in AlienVault OTX (`/general` and `/analysis`), which returns community pulses and real verdicts from ClamAV, Microsoft Defender and YARA rules — from the browser, with no key. Up to three files from the newest release (installers first) are checked, with a short pause between requests. Each row shows a verdict, the engines that fired, links to the full OTX report and to VirusTotal for the same hash, and a copy-hash button. "No data" is explicitly *unknown*, not *clean*, and failures or rate limits leave the links in place with a retry button.
+- **Live virus check, shown in both modes.** GitHub publishes a `sha256` digest for every release asset, so each file is identified without downloading it. The hash is looked up in AlienVault OTX (`/general` and `/analysis`) from the browser, with no key. Up to three files from the newest release (installers first) are checked, with a short pause between requests. A summary line above the list answers the question directly: whether viruses were found and which antivirus checked the files — ClamAV and Microsoft Defender. Each row repeats the verdict, names the engines and any signatures, links to the full OTX report and to VirusTotal for the same hash, and offers a copy-hash button. Only real antivirus engines get a vote: YARA rules and OTX classifiers fire on harmless installers, so they are never treated as a detection. "No antivirus report" is explicitly *unknown*, not *clean*, and failures or rate limits leave the links in place with a retry button. The loading status says the files are being checked for viruses.
 - The live check is an evidence layer only: it never touches `scoreChecks`, so the score stays deterministic and language-independent.
 - **CI for the repository itself.** A GitHub Actions workflow runs `node --check`, the full `node --test` suite and `scripts/check.py` on every push and pull request, so a broken rule or a missing asset cannot reach the site.
 
@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - The project is now **GitHub Checker**. The product name changed everywhere: page title, header, footer, share card, SVG badge, download file names, docs, issue templates and launch copy. The repository is renamed to `TIZZ13/GitHubChecker`, so the site now lives at `https://tizz13.github.io/GitHubChecker/`; the old repository URL redirects there.
 - Browser storage keys moved to `githubchecker.*` with a one-time read of the old `launchcheck.*` keys, so language, mode and a saved token survive the rename.
 - Downloader-mode wording no longer says a file can only be checked with an antivirus: it now describes what the hash lookup does, and the safety brief separates integrity (checksums, signature) from reputation (databases, sandboxes).
+
+### Fixed
+
+- The browser storage helpers used bare `token`, `lang`, `last` and `mode` keys instead of the documented `githubchecker.*` names. They now use the namespaced keys, still read the old `launchcheck.*` values, and pick up keys written while the bug was live, so a saved token or language is not lost.
 
 ## [1.1.0] — 2026-11-18
 

@@ -28,7 +28,7 @@ Usually it is not because the project is bad. It is because a stranger opens the
 
 GitHub Checker answers those questions before anyone else has to. It reads the public repository, runs 23 fixed checks and shows exactly what is missing — in the order that matters.
 
-The same page works from the other side too. If you are about to download a stranger's program, the **downloader** mode runs 21 different checks: is the source open, does the code do something risky that the README never mentions, are there checksums, are the side effects and the way back documented. It then looks up the release files by hash and shows what public engines and community reports say about them. It never says a file is safe or virus-free — it lists what is known and what is not.
+The same page works from the other side too. If you are about to download a stranger's program, the **downloader** mode runs 21 different checks: is the source open, does the code do something risky that the README never mentions, are there checksums, are the side effects and the way back documented. It then looks up the release files by hash and shows what two antivirus engines and community reports say about them. It never says a file is safe — a clean result only means what those engines saw at that moment.
 
 ![Example report card](assets/card-demo-en.jpg)
 
@@ -41,7 +41,7 @@ The same page works from the other side too. If you are about to download a stra
 - **A list of issues in plain language** — what is wrong, why it costs you users, and how bad it is. Each one has a concrete action, not just a complaint.
 - **A ready-to-paste prompt for every issue** in author mode, written for Claude Code, Codex, Cursor or any other agent. Copy one, or copy all and let the agent work through the list.
 - **A file safety brief** in downloader mode: which source files were read, what the code actually does, which of it the README declares, and whether checksums exist. Facts, not a verdict.
-- **A live hash check** in downloader mode: every release file's SHA-256 (published by GitHub) is looked up in AlienVault OTX and shown with verdicts from ClamAV, Microsoft Defender and YARA rules, plus direct links to the full report and to VirusTotal. "No data" means unknown, never clean.
+- **A live virus check, shown in both modes**: every release file's SHA-256 (published by GitHub) is looked up in AlienVault OTX, where ClamAV and Microsoft Defender check it. A summary line says whether viruses were found and which engines checked the files; each row names the engines and any signatures, with direct links to the full report and to VirusTotal. "No antivirus report" means unknown, never clean.
 - **A shareable card (1200×630 PNG)** for social media and a **static SVG badge** for your README.
 
 ## How it works
@@ -50,8 +50,8 @@ GitHub Checker is a static page. There is no server, no database and no AI model
 
 1. The browser calls the public GitHub API a few times: repository metadata, file tree, README, releases, and a few small source files for the risk scan.
 2. A deterministic rule engine runs one of two fixed profiles — 23 checks for authors, 21 for downloaders. Same repository → same score, today or in a year, in Russian or English.
-3. In downloader mode the page also reads the SHA-256 that GitHub publishes for each release asset and looks the hash up in AlienVault OTX, a public threat-intelligence database. Only the hash leaves the browser; the file itself is never fetched.
-4. Results are rendered locally. Nothing is sent anywhere except `api.github.com` and, in downloader mode, `otx.alienvault.com`.
+3. In both modes the page also reads the SHA-256 that GitHub publishes for each release asset and looks the hash up in AlienVault OTX, a public threat-intelligence database. Only the hash leaves the browser; the file itself is never fetched.
+4. Results are rendered locally. Nothing is sent anywhere except `api.github.com` and `otx.alienvault.com` (a file hash and nothing else).
 
 Checks that do not apply are not scored at all and are listed under "Not scored": a library needs no live demo, a desktop app can satisfy the demo rule with a screenshot, `requirements.txt` is not punished for having no lockfile, and a small new or joke project gets halved weights for CI, tests, linter and contributor rules with wording that says why.
 
@@ -91,14 +91,14 @@ The score is not a verdict on your code quality. In author mode it measures how 
 
 - **Not an AI product.** There is no model, no prompt, no key to leak. The prompts are generated from templates, filled with what the checks found.
 - **Not a security audit.** It catches the obvious mistakes — a committed `.env`, a private key, a hardcoded token — and tells you to rotate the keys. It does not replace a real audit.
-- **Not a guarantee.** Downloader mode reads the source, the README and the release metadata, then looks up file hashes in public databases. It never downloads or runs a release file and never claims that anything is safe. A hash that no database has seen means "unknown", not "clean". For a verdict, open the VirusTotal or sandbox link in the report.
+- **Not a guarantee.** Downloader mode reads the source, the README and the release metadata; both modes look up file hashes in public databases. It never downloads or runs a release file and never claims that anything is safe. A hash that no database has seen means "unknown", not "clean". For a verdict, open the VirusTotal or sandbox link in the report.
 - **Not a code review.** It looks at the repository as a package: files, configs, docs, releases.
 - **Not a gatekeeper.** A low score does not mean the project is bad. Plenty of great tools score badly because nobody wrote the boring parts.
 
 ## Privacy
 
 - There is no backend and no analytics.
-- The only network requests go to `api.github.com` and, in downloader mode, `otx.alienvault.com` (a file hash and nothing else).
+- The only network requests go to `api.github.com` and `otx.alienvault.com` (a file hash and nothing else).
 - A GitHub token is optional, stays in your browser's `localStorage` and is sent only to `api.github.com`. It is needed for private repositories and for the 5000 req/hour limit instead of 60.
 - Detected secret values are never rendered, logged or sent anywhere. The report only says which file looked suspicious and what kind of secret it resembles.
 

@@ -14,23 +14,27 @@
 
   function storeGet(key) {
     try {
-      var v = localStorage.getItem(key);
+      var v = localStorage.getItem(LS[key] || key);
       if (v === null && LS_OLD[key]) v = localStorage.getItem(LS_OLD[key]);
+      /* keys written by 39ab465..bb9a177, when the helper used bare names */
+      if (v === null) v = localStorage.getItem(key);
       return v;
     } catch (e) { return null; }
   }
 
   function storeSet(key, value) {
     try {
-      localStorage.setItem(key, value);
+      localStorage.setItem(LS[key] || key, value);
       if (LS_OLD[key]) localStorage.removeItem(LS_OLD[key]);
+      localStorage.removeItem(key);
     } catch (e) { }
   }
 
   function storeDel(key) {
     try {
-      localStorage.removeItem(key);
+      localStorage.removeItem(LS[key] || key);
       if (LS_OLD[key]) localStorage.removeItem(LS_OLD[key]);
+      localStorage.removeItem(key);
     } catch (e) { }
   }
 
@@ -138,22 +142,36 @@
       safetyVt: 'Проверь скачанный файл на VirusTotal — это бесплатно.',
       safetyVtBtn: 'Открыть VirusTotal',
       safetyNotGuarantee: 'Это не гарантия безопасности. Решение запускать файл всегда за тобой.',
-      liveHead: 'Живая проверка файлов',
+      liveHead: 'Проверка на вирусы',
       liveSource: 'AlienVault OTX',
-      liveNote: 'Хеш каждого файла сверяется с AlienVault OTX: отчёты сообщества и вердикты ClamAV, Microsoft Defender и правил YARA. Файл не скачивается — уходит только хеш.',
-      liveLoading: 'Проверяю…',
+      liveNote: 'Хеш каждого файла сверяется с AlienVault OTX: его проверяют антивирусы ClamAV и Microsoft Defender. Файл не скачивается — уходит только хеш.',
+      liveChecking: 'Проверяю…',
+      liveLoading: 'Проверяю файлы на вирусы…',
       liveWaiting: 'В очереди',
-      liveThreat: 'Движки нашли угрозу',
+      liveThreat: 'Вирусы найдены',
+      liveClean: 'Вирусов нет',
       livePulse: 'Есть упоминания',
-      liveUnknown: 'Нет данных',
+      liveUnknown: 'Не проверено',
       liveFailed: 'Не удалось проверить',
-      liveEngines: 'Сработало правил: {n} — {list}',
+      liveAnd: 'и',
+      liveEngines: 'Найдено: {list}. Проверяли: {engines}.',
+      liveCleanNote: 'Проверено: {engines}. Вирусов не найдено.',
+      livePulseNote: 'Проверено: {engines}. Вирусов не найдено, но файл упоминается в отчётах сообщества: {n}.',
+      livePulseNoAv: 'Антивирусы файл не проверяли. Упоминаний в отчётах сообщества: {n}.',
       livePulses: 'Упоминается в отчётах сообщества: {n}',
-      liveUnknownNote: 'Хеш не встречается в отчётах OTX. Это «неизвестно», а не «чисто».',
+      liveUnknownNote: 'Антивирусы не проверяли этот хеш — отчётов нет. Это «неизвестно», а не «чисто».',
+      liveSumThreat: 'Итог проверки на вирусы: вирусы найдены в {k} из {m} файлов. Проверяли: {engines}.',
+      liveSumThreatPartial: 'Итог проверки на вирусы: вирусы найдены в {k} из {m} файлов, осталось непроверенных: {u}. Проверяли: {engines}.',
+      liveSumClean: 'Итог проверки на вирусы: вирусов не найдено. Проверяли: {engines}.',
+      liveSumCleanPulse: 'Итог проверки на вирусы: вирусов не найдено. Проверяли: {engines}. Есть упоминания в отчётах сообщества.',
+      liveSumPartial: 'Итог проверки на вирусы: вирусов не найдено в {k} из {m} файлов, осталось непроверенных: {u}. Проверяли: {engines}.',
+      liveSumPulseNoAv: 'Итог проверки на вирусы: антивирусы эти файлы не проверяли, но есть отчёты сообщества. Это «неизвестно», а не «чисто».',
+      liveSumUnknown: 'Итог проверки на вирусы: антивирусы эти файлы не проверяли. Неизвестно — это не «чисто».',
+      liveSumFailed: 'Итог проверки на вирусы: сервис не ответил, проверить не удалось.',
       liveNoDigest: 'GitHub не отдал SHA-256 для этого файла.',
       liveErrorNote: 'Сервис не ответил. Проверь файл по ссылкам вручную.',
       liveLimit: 'Сервис ограничил запросы, попробуй позже.',
-      liveNotScore: 'Живая проверка не влияет на балл: балл считается только по правилам и не меняется со временем.',
+      liveNotScore: 'Проверка на вирусы не влияет на балл: балл считается только по правилам и не меняется со временем. Отсутствие детекций не гарантирует чистоту — новый файл может быть ещё не известен базам.',
       liveVt: 'VirusTotal',
       liveOtx: 'Отчёт OTX',
       liveCopyHash: 'Скопировать хеш',
@@ -279,22 +297,36 @@
       safetyVt: 'Check the downloaded file on VirusTotal — it is free.',
       safetyVtBtn: 'Open VirusTotal',
       safetyNotGuarantee: 'This is not a safety guarantee. The decision to run a file is always yours.',
-      liveHead: 'Live file check',
+      liveHead: 'Virus check',
       liveSource: 'AlienVault OTX',
-      liveNote: 'Each file hash is looked up in AlienVault OTX: community reports and verdicts from ClamAV, Microsoft Defender and YARA rules. The file is never downloaded — only the hash leaves the browser.',
-      liveLoading: 'Checking…',
+      liveNote: 'Each file hash is looked up in AlienVault OTX, where ClamAV and Microsoft Defender check it. The file is never downloaded — only the hash leaves the browser.',
+      liveChecking: 'Checking…',
+      liveLoading: 'Checking the files for viruses…',
       liveWaiting: 'Queued',
-      liveThreat: 'Engines detected a threat',
+      liveThreat: 'Viruses found',
+      liveClean: 'No viruses',
       livePulse: 'Reports mention it',
-      liveUnknown: 'No data',
+      liveUnknown: 'Not checked',
       liveFailed: 'Check failed',
-      liveEngines: 'Rules that fired: {n} — {list}',
+      liveAnd: 'and',
+      liveEngines: 'Found: {list}. Checked by: {engines}.',
+      liveCleanNote: 'Checked by: {engines}. No viruses found.',
+      livePulseNote: 'Checked by: {engines}. No viruses found, but the file appears in community reports: {n}.',
+      livePulseNoAv: 'No antivirus has checked this file. Community reports: {n}.',
       livePulses: 'Community reports mentioning it: {n}',
-      liveUnknownNote: 'The hash does not appear in OTX reports. That means unknown, not clean.',
+      liveUnknownNote: 'No antivirus has checked this hash — there are no reports. That is unknown, not clean.',
+      liveSumThreat: 'Virus check result: viruses found in {k} of {m} files. Checked by: {engines}.',
+      liveSumThreatPartial: 'Virus check result: viruses found in {k} of {m} files, {u} not checked. Checked by: {engines}.',
+      liveSumClean: 'Virus check result: no viruses found. Checked by: {engines}.',
+      liveSumCleanPulse: 'Virus check result: no viruses found. Checked by: {engines}. Community reports mention the file.',
+      liveSumPartial: 'Virus check result: no viruses found in {k} of {m} files, {u} not checked. Checked by: {engines}.',
+      liveSumPulseNoAv: 'Virus check result: no antivirus has checked these files, but community reports exist. That is unknown, not clean.',
+      liveSumUnknown: 'Virus check result: no antivirus has checked these files. That is unknown, not clean.',
+      liveSumFailed: 'Virus check result: the service did not answer, the check failed.',
       liveNoDigest: 'GitHub did not provide a SHA-256 for this file.',
       liveErrorNote: 'The service did not answer. Check the file through the links yourself.',
       liveLimit: 'The service rate-limited the requests, try again later.',
-      liveNotScore: 'The live check does not affect the score: the score comes from the rules alone and does not change over time.',
+      liveNotScore: 'The virus check does not affect the score: the score comes from the rules alone and does not change over time. A lack of detections is not a guarantee — a new file may still be unknown to the databases.',
       liveVt: 'VirusTotal',
       liveOtx: 'OTX report',
       liveCopyHash: 'Copy hash',
@@ -2124,7 +2156,11 @@
 
   var OTX_API = 'https://otx.alienvault.com/api/v1/indicators/';
   var LIVE_MAX_FILES = 3;
-  var ENGINE_NAMES = { clamav: 'ClamAV', msdefender: 'Microsoft Defender', yarad: 'YARA', yara: 'YARA' };
+  /* OTX runs many plugins. Only real antivirus engines get a vote: the YARA
+     plugin also fires on harmless installers (InnoSetupInstaller), and the
+     classifier plugins return alerts for signed software, so neither is a
+     virus verdict. */
+  var AV_ENGINES = { clamav: 'ClamAV', msdefender: 'Microsoft Defender' };
 
   function sha256Of(asset) {
     var m = /^sha256:([a-f0-9]{64})$/i.exec(String((asset && asset.digest) || ''));
@@ -2151,23 +2187,39 @@
     }).slice(0, LIVE_MAX_FILES);
   }
 
+  /* Engine names in a stable order: ClamAV first, then Defender. */
+  function engineList(ids) {
+    return Object.keys(AV_ENGINES).filter(function (id) {
+      return ids.indexOf(id) >= 0;
+    }).map(function (id) { return AV_ENGINES[id]; });
+  }
+
+  function joinEngines(names) {
+    if (!names.length) return '';
+    if (names.length === 1) return names[0];
+    return names.slice(0, -1).join(', ') + ' ' + t('liveAnd') + ' ' + names[names.length - 1];
+  }
+
   /* Pure: network payloads in, one small object out. Testable without a DOM. */
   function verdictFromOtx(hash, general, analysis) {
     var info = (general && general.pulse_info) || {};
     var pulses = typeof info.count === 'number' ? info.count : (info.pulses || []).length;
-    var engines = [];
     var plugins = (analysis && analysis.analysis && analysis.analysis.plugins) || {};
+    var checkedIds = [];
+    var detections = [];
     Object.keys(plugins).forEach(function (id) {
       var res = plugins[id] && plugins[id].results;
-      if (!res) return;
-      var d = res.detection;
+      if (!res || !AV_ENGINES[id]) return;
+      checkedIds.push(id);
       var label = '';
+      var d = res.detection;
       if (Array.isArray(d)) label = d.length ? String(d[0].rule_name || d[0].name || '') : '';
       else if (typeof d === 'string') label = d;
-      if (!label && Array.isArray(res.alerts) && res.alerts.length) label = String(res.alerts[0]);
-      if (!label) return;
-      engines.push({ engine: ENGINE_NAMES[id] || id, label: label });
+      if (label) detections.push({ engine: AV_ENGINES[id], label: label });
     });
+    var avEngines = engineList(checkedIds);
+    var verdict = detections.length ? 'threat'
+      : (avEngines.length ? (pulses ? 'pulse' : 'clean') : (pulses ? 'pulse' : 'unknown'));
     return {
       hash: hash,
       answered: !!(general || analysis),
@@ -2175,8 +2227,10 @@
       pulseNames: (info.pulses || []).slice(0, 2).map(function (p) {
         return String((p && p.name) || '');
       }).filter(Boolean),
-      engines: engines,
-      verdict: engines.length ? 'threat' : (pulses ? 'pulse' : 'unknown')
+      avEngines: avEngines,
+      detections: detections,
+      engines: detections, /* old name kept for callers and tests */
+      verdict: verdict
     };
   }
 
@@ -2249,9 +2303,10 @@
   function liveChip(row) {
     if (row.status === 'failed') return { cls: 'failed', text: t(row.rateLimited ? 'liveLimit' : 'liveFailed') };
     if (row.status !== 'done' || !row.verdict) {
-      return { cls: 'waiting', text: t(row.status === 'loading' ? 'liveLoading' : 'liveWaiting') };
+      return { cls: 'waiting', text: t(row.status === 'loading' ? 'liveChecking' : 'liveWaiting') };
     }
     if (row.verdict.verdict === 'threat') return { cls: 'threat', text: t('liveThreat') };
+    if (row.verdict.verdict === 'clean') return { cls: 'clean', text: t('liveClean') };
     if (row.verdict.verdict === 'pulse') return { cls: 'pulse', text: t('livePulse') };
     return { cls: 'unknown', text: t('liveUnknown') };
   }
@@ -2260,17 +2315,61 @@
     if (row.status === 'failed') return t(row.rateLimited ? 'liveLimit' : 'liveErrorNote');
     if (row.status !== 'done' || !row.verdict) return '';
     var v = row.verdict;
+    var engines = joinEngines(v.avEngines || []);
     if (v.verdict === 'threat') {
-      var list = v.engines.slice(0, 3).map(function (e) { return e.engine + ': ' + e.label; }).join('; ');
-      if (v.engines.length > 3) list += ' …';
-      return fmt(t('liveEngines'), { n: v.engines.length, list: list });
+      var list = v.detections.slice(0, 3).map(function (e) { return e.engine + ': ' + e.label; }).join('; ');
+      if (v.detections.length > 3) list += ' …';
+      return fmt(t('liveEngines'), { list: list, engines: engines });
+    }
+    if (v.verdict === 'clean') {
+      return fmt(t('liveCleanNote'), { engines: engines });
     }
     if (v.verdict === 'pulse') {
-      var text = fmt(t('livePulses'), { n: v.pulses });
+      var text = v.avEngines.length
+        ? fmt(t('livePulseNote'), { engines: engines, n: v.pulses })
+        : fmt(t('livePulseNoAv'), { n: v.pulses });
       if (v.pulseNames.length) text += ' — ' + v.pulseNames.join(' · ');
       return text;
     }
     return t('liveUnknownNote');
+  }
+
+  /* The headline answer: which engines checked the files and whether they
+     found anything. Counts only finished rows, so a running check stays quiet. */
+  function liveSummary(live) {
+    var rows = live.rows || [];
+    if (live.status !== 'done' || !rows.length) return '';
+    var total = rows.length;
+    var done = rows.filter(function (r) { return r.status === 'done' && r.verdict; });
+    if (!done.length) return summaryHtml('failed', t('liveSumFailed'));
+
+    var threats = done.filter(function (r) { return r.verdict.verdict === 'threat'; }).length;
+    var checked = done.filter(function (r) { return r.verdict.avEngines.length; });
+    var unchecked = total - checked.length;
+    var ids = [];
+    checked.forEach(function (r) {
+      r.verdict.avEngines.forEach(function (name) {
+        var id = Object.keys(AV_ENGINES).filter(function (k) { return AV_ENGINES[k] === name; })[0];
+        if (id && ids.indexOf(id) < 0) ids.push(id);
+      });
+    });
+    var engines = joinEngines(engineList(ids));
+    var pulses = done.some(function (r) { return r.verdict.pulses > 0; });
+
+    if (threats) {
+      return summaryHtml('threat', unchecked
+        ? fmt(t('liveSumThreatPartial'), { k: threats, m: total, u: unchecked, engines: engines })
+        : fmt(t('liveSumThreat'), { k: threats, m: total, engines: engines }));
+    }
+    if (!checked.length) return summaryHtml('unknown', t(pulses ? 'liveSumPulseNoAv' : 'liveSumUnknown'));
+    if (unchecked) {
+      return summaryHtml('unknown', fmt(t('liveSumPartial'), { k: checked.length, m: total, u: unchecked, engines: engines }));
+    }
+    return summaryHtml(pulses ? 'pulse' : 'clean', fmt(t(pulses ? 'liveSumCleanPulse' : 'liveSumClean'), { engines: engines }));
+  }
+
+  function summaryHtml(cls, text) {
+    return '<p class="live-summary ' + cls + '">' + esc(text) + '</p>';
   }
 
   function liveRow(row, i) {
@@ -2308,6 +2407,7 @@
       '<span class="live-src">' + esc(t('liveSource')) + '</span>' +
       (head ? '<span class="live-progress">' + esc(head) + '</span>' : '') +
       '</div>' +
+      liveSummary(live) +
       '<p class="live-note">' + esc(t('liveNote')) + '</p>' +
       '<ul class="live-files">';
     live.rows.forEach(function (row, i) { html += liveRow(row, i); });
@@ -2342,6 +2442,7 @@
     if (!live || !live.rows.length) return Promise.resolve();
     if (live.status === 'running' || live.status === 'done') return Promise.resolve();
     live.status = 'running';
+    setStatus(t('liveLoading'));
     paintLive();
 
     var chain = Promise.resolve();
@@ -2365,6 +2466,7 @@
 
     return chain.then(function () {
       live.status = 'done';
+      setStatus('');
       paintLive();
     });
   }
@@ -2501,6 +2603,7 @@
     html += '</div></div>'; /* summary + scoreboard */
 
     if (isUser) html += safetyCard();
+    else html += liveCard();
 
     if (ctx.truncated) {
       html += '<p class="hint">' + esc(t('truncated')) + '</p>';
@@ -2564,8 +2667,8 @@
       render();
     });
 
-    /* live lookup starts after the report is on screen, so it never delays the score */
-    if (isUser) runLiveCheck();
+    /* the virus lookup starts after the report is on screen, so it never delays the score */
+    runLiveCheck();
   }
 
   function renderIssue(f, index) {

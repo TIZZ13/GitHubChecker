@@ -392,15 +392,32 @@ test('verdictFromOtx reports an engine detection as a threat', () => {
   assert.deepStrictEqual(v.pulseNames, ['Emotet', 'Qakbot']);
 });
 
-test('verdictFromOtx reads a YARA rule name', () => {
+test('verdictFromOtx treats an empty antivirus result as checked and clean', () => {
+  const analysis = {
+    analysis: {
+      plugins: {
+        clamav: { results: {} },
+        msdefender: { results: {} },
+        yarad: { results: { detection: [{ rule_name: 'InnoSetupInstaller' }] } }
+      }
+    }
+  };
+  const v = verdictFromOtx('abc', { pulse_info: { count: 0 } }, analysis);
+  assert.strictEqual(v.verdict, 'clean');
+  assert.deepStrictEqual(v.avEngines, ['ClamAV', 'Microsoft Defender']);
+  assert.deepStrictEqual(v.detections, []);
+});
+
+test('verdictFromOtx does not treat a harmless YARA rule as a virus', () => {
   const analysis = {
     analysis: {
       plugins: { yarad: { results: { detection: [{ rule_name: 'win_malware_generic' }] } } }
     }
   };
   const v = verdictFromOtx('abc', { pulse_info: { count: 0 } }, analysis);
-  assert.strictEqual(v.verdict, 'threat');
-  assert.deepStrictEqual(v.engines, [{ engine: 'YARA', label: 'win_malware_generic' }]);
+  assert.strictEqual(v.verdict, 'unknown');
+  assert.deepStrictEqual(v.detections, []);
+  assert.deepStrictEqual(v.avEngines, []);
 });
 
 test('verdictFromOtx reports community reports without a detection as a pulse', () => {

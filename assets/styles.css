@@ -806,10 +806,26 @@ h1 em {
   white-space: nowrap;
 }
 .live-chip.threat { color: var(--red); }
+.live-chip.clean { color: var(--green); }
 .live-chip.pulse { color: var(--ochre); }
 .live-chip.unknown { color: var(--muted); }
 .live-chip.waiting { color: var(--dim); border-style: dashed; }
 .live-chip.failed { color: var(--petrol); }
+
+.live-summary {
+  margin: 9px 0 0;
+  padding: 7px 9px;
+  border: 1px solid var(--rule);
+  background: var(--paper-hi);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.live-summary.clean { border-color: var(--green); color: var(--green); }
+.live-summary.threat { border-color: var(--red); color: var(--red-deep); }
+.live-summary.pulse { border-color: var(--ochre); color: var(--ochre); }
+.live-summary.unknown { color: var(--ink-2); }
+.live-summary.failed { border-color: var(--petrol); color: var(--petrol); }
 
 .live-result {
   margin: 5px 0 0;

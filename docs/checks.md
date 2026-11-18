@@ -21,21 +21,24 @@ Skipped checks add nothing to either side, so a project is never punished for a 
 
 A mode switch after an audit rebuilds the check list from the data already in memory. No GitHub request is made, and the mode is stored in `?mode=` and `localStorage`.
 
-## Live file check (downloader mode only)
+## Live virus check (shown in both modes)
 
-The score never depends on the network beyond GitHub, and it never changes over time. The live check is a separate evidence layer.
+The score never depends on the network beyond GitHub, and it never changes over time. The virus check is a separate evidence layer.
 
 1. GitHub publishes a `sha256` digest for every release asset in the releases API. The page reads the digest, so a file can be identified without downloading a single byte.
 2. Only the **newest release** is checked. If its assets have no digest, older releases are used. Up to **three** files are checked, installers first (`.exe`, `.msi`, `.dmg`, `.pkg`, `.AppImage`, `.deb`, `.rpm`, `.apk`), then archives, then anything else.
-3. Each hash is looked up in **AlienVault OTX**, two public endpoints per file: `/general` (community pulses) and `/analysis` (engine results). The browser sends the hash and nothing else; the file is never downloaded.
-4. The result per file is one of:
-   - **Engines detected a threat** — ClamAV, Microsoft Defender or a YARA rule returned a detection. The report names the engine and the signature.
-   - **Reports mention it** — the hash appears in community pulses. The report shows how many.
-   - **No data** — the hash is not in OTX. This is *unknown*, not *clean*.
+3. Each hash is looked up in **AlienVault OTX**, two public endpoints per file: `/general` (community pulses) and `/analysis` (antivirus results). The browser sends the hash and nothing else; the file is never downloaded.
+4. Only real antivirus engines get a vote: **ClamAV** and **Microsoft Defender**. OTX also runs YARA and several classifiers, but they fire on harmless installers (for example `InnoSetupInstaller`) or on signed software, so their output is not treated as a virus verdict.
+5. The result per file is one of:
+   - **Viruses found** — ClamAV or Microsoft Defender returned a detection. The report names the engine, the signature and every engine that checked the file.
+   - **No viruses** — both engines returned an empty result for a file they checked. The report says who checked it.
+   - **Reports mention it** — the hash appears in community pulses but no engine detected anything. The report shows how many reports.
+   - **Not checked** — OTX has no antivirus report for the hash. This is *unknown*, not *clean*.
    - **Check failed** — the service did not answer or rate-limited the request. The file is left with its VirusTotal and OTX links so it can be checked by hand.
-5. Each row links to the full OTX report and to VirusTotal for the same hash, and offers a copy-hash button.
+6. Above the file list, a summary line answers the question directly: whether viruses were found and which engines checked the files. If some files could not be checked, the summary says so.
+7. Each row links to the full OTX report and to VirusTotal for the same hash, and offers a copy-hash button.
 
-The lookup is capped at three files with a short pause between them because the OTX endpoint is public and needs no key. It never runs in author mode, is cached per audit so switching modes does not refetch, and **never touches `scoreChecks`**: the score stays identical in Russian and English, today and a year from now.
+The lookup is capped at three files with a short pause between them because the OTX endpoint is public and needs no key. It runs after the report is on screen, is cached per audit so switching modes does not refetch, and **never touches `scoreChecks`**: the score stays identical in Russian and English, today and a year from now.
 
 ## Project detection
 
@@ -131,7 +134,7 @@ Secret values are never displayed and never leave the browser. The report names 
 
 ## Downloader mode — 21 checks, 100 points
 
-This mode answers a different question: *if I download this, what should I know first?* It never claims that a file is safe or virus-free.
+This mode answers a different question: *if I download this, what should I know first?* It never claims that a file is safe; the virus block reports only what the engines saw, with a caveat.
 
 ### Security — 28
 
@@ -203,9 +206,9 @@ Downloader mode adds a separate card built from the risk scan and release metada
 - whether checksums or a signature exist;
 - whether the file is unsigned, inside a password-protected archive, or asks for administrator rights;
 - if there is nothing to download (a library, a website, source-only), the card says so and hides the VirusTotal action;
-- a reminder that the release files were not scanned by antivirus and a link to VirusTotal.
+- when the release file has no published SHA-256, a note that the hash cannot be looked up and a link to upload it to VirusTotal.
 
-The card never says "safe" or "no viruses". It says "no risk signals were found" and always ends with "This is not a safety guarantee."
+The card never says "safe". The virus block reports what the engines saw, names them, and always ends with the caveat that no detection is not a guarantee.
 
 ## What the risk scan looks for
 
@@ -234,7 +237,7 @@ Two accuracy rules keep the scan honest:
 
 - Actual code quality, architecture, performance or accessibility of the product.
 - Dependency vulnerabilities and license compatibility.
-- Antivirus verdicts as part of the score. Hash lookups in downloader mode are shown as separate evidence and never change the number. The project never downloads or runs a release file.
+- Antivirus verdicts as part of the score. Hash lookups are shown as separate evidence in both modes and never change the number. The project never downloads or runs a release file.
 - Popularity as a score: stars, forks and downloads are shown where relevant but are not a quality verdict.
 - Anything that requires cloning the repository. Only public API data is used.
 
