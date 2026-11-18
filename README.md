@@ -1,5 +1,7 @@
 # GitHub Checker
 
+[![CI](https://github.com/TIZZ13/GitHubChecker/actions/workflows/ci.yml/badge.svg)](https://github.com/TIZZ13/GitHubChecker/actions/workflows/ci.yml)
+
 **Paste a GitHub repo link. Get a score out of 100, a plain-language list of what is broken, and ready-to-paste prompts for your AI agent.**
 
 Two audit modes: **author** (fix your own project) and **downloader** (decide whether a project is worth downloading). The mode can be switched after an audit — the score is recomputed from data already loaded, with no new requests.
