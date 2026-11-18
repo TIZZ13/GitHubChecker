@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] — 2026-11-18
 
 ### Added
 
@@ -73,6 +73,6 @@ First public release.
 - Deep links (`?repo=owner/name`) and the last checked repository in `localStorage`.
 - Node test runner suite for URL parsing and the secret scanner, plus a structural check for local assets.
 
-[Unreleased]: https://github.com/TIZZ13/GitHubChecker/compare/v1.1.0...HEAD
+[1.2.0]: https://github.com/TIZZ13/GitHubChecker/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/TIZZ13/GitHubChecker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/TIZZ13/GitHubChecker/releases/tag/v1.0.0
