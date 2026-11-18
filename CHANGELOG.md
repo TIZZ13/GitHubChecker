@@ -21,6 +21,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- The share card image still showed the old `launchcheck` address. It now shows the current site address and names the release virus check.
 - The browser storage helpers used bare `token`, `lang`, `last` and `mode` keys instead of the documented `githubchecker.*` names. They now use the namespaced keys, still read the old `launchcheck.*` values, and pick up keys written while the bug was live, so a saved token or language is not lost.
 
 ## [1.1.0] — 2026-11-18
