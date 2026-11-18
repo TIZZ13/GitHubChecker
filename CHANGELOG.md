@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - **Live file check in downloader mode.** GitHub publishes a `sha256` digest for every release asset, so each file is identified without downloading it. The hash is looked up in AlienVault OTX (`/general` and `/analysis`), which returns community pulses and real verdicts from ClamAV, Microsoft Defender and YARA rules — from the browser, with no key. Up to three files from the newest release (installers first) are checked, with a short pause between requests. Each row shows a verdict, the engines that fired, links to the full OTX report and to VirusTotal for the same hash, and a copy-hash button. "No data" is explicitly *unknown*, not *clean*, and failures or rate limits leave the links in place with a retry button.
 - The live check is an evidence layer only: it never touches `scoreChecks`, so the score stays deterministic and language-independent.
+- **CI for the repository itself.** A GitHub Actions workflow runs `node --check`, the full `node --test` suite and `scripts/check.py` on every push and pull request, so a broken rule or a missing asset cannot reach the site.
 
 ### Changed
 
