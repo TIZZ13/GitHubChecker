@@ -12,6 +12,8 @@ No signup. No install. No backend. No analytics.
 
 [**Try it →**](https://tizz13.github.io/GitHubChecker/) · [Русская версия](#русский)
 
+*If it saves you an afternoon, [a star](https://github.com/TIZZ13/GitHubChecker) helps the next person find it.*
+
 ![GitHub Checker](assets/og.jpg)
 
 ---

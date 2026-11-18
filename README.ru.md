@@ -12,6 +12,8 @@
 
 [**Открыть сайт →**](https://tizz13.github.io/GitHubChecker/) · [English](README.md)
 
+*Если проверка сэкономила вам вечер, [звезда](https://github.com/TIZZ13/GitHubChecker) помогает найти проект следующему.*
+
 ![GitHub Checker](assets/og.jpg)
 
 ---
