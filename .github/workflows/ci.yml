@@ -23,7 +23,7 @@ jobs:
         run: node --check assets/app.js
 
       - name: Tests
-        run: node --test tests/
+        run: node --test
 
       - name: Local assets exist
         run: python3 scripts/check.py

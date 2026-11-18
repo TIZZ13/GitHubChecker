@@ -33,7 +33,7 @@ There are two profiles, `PROFILES.dev` and `PROFILES.user`. A check belongs to o
 
 ```bash
 node --check assets/app.js
-node --test tests/
+node --test
 python3 scripts/check.py
 ```
 

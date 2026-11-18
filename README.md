@@ -120,7 +120,7 @@ Any static server works. Opening `index.html` directly is not recommended: `fetc
 Run the tests (Node 20+, no dependencies):
 
 ```bash
-node --test tests/
+node --test
 ```
 
 The suite covers URL parsing, the secret scanner, README language detection, the risk scan, project-profile detection, score normalisation and the live hash check (digest parsing, file selection, OTX verdicts) — the places where a silent bug would produce a wrong answer. `scripts/check.py` verifies that every local asset referenced by `index.html` exists and that the social preview image stays small; run it with `python3 scripts/check.py`.
