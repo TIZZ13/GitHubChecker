@@ -41,7 +41,7 @@ The same page works from the other side too. If you are about to download a stra
 - **A list of issues in plain language** — what is wrong, why it costs you users, and how bad it is. Each one has a concrete action, not just a complaint.
 - **A ready-to-paste prompt for every issue** in author mode, written for Claude Code, Codex, Cursor or any other agent. Copy one, or copy all and let the agent work through the list.
 - **A file safety brief** in downloader mode: which source files were read, what the code actually does, which of it the README declares, and whether checksums exist. Facts, not a verdict.
-- **A live virus check, shown in both modes**: every release file's SHA-256 (published by GitHub) is looked up in AlienVault OTX, where ClamAV and Microsoft Defender check it. A summary line says whether viruses were found and which engines checked the files; each row names the engines and any signatures, with direct links to the full report and to VirusTotal. "No antivirus report" means unknown, never clean.
+- **A live virus check, shown in both modes**: every release file's SHA-256 (published by GitHub) is looked up in AlienVault OTX, where ClamAV and Microsoft Defender check it. A summary line says whether viruses were found and which engines checked the files; each row names the engines and any signatures, with direct links to the full report and to VirusTotal. "No antivirus report" means unknown, never clean. The card appears for every repository and states plainly when there is nothing to check (no releases, no attached files, no published hash). Answers are cached, so a repeated audit costs no requests, and a rate limit becomes a visible cooldown with an automatic retry instead of an error screen.
 - **A shareable card (1200×630 PNG)** for social media and a **static SVG badge** for your README.
 
 ## How it works
@@ -106,6 +106,8 @@ The score is not a verdict on your code quality. In author mode it measures how 
 
 Anonymous GitHub API allows 60 requests per hour, which is roughly 6–10 audits. Add a [personal access token](https://github.com/settings/tokens) in settings (scope `public_repo` is enough) to get 5000 requests per hour. The remaining quota is shown in the header.
 
+AlienVault OTX needs no key but allows 100 requests per hour per IP. One file costs one request when an antivirus has seen the hash and two when it has not, and an audit checks at most three files. Answers are cached per hash in `localStorage` (7 days for a real verdict, 24 hours for "unknown"), so re-opening a repository or switching modes makes no request. On the first 429 the check stops for 10 minutes, keeps the results it already has, and retries the failed files automatically up to two times; the **Check again** button retries them by hand after the cooldown. A saved result up to 90 days old can be shown when the service is down, marked as saved.
+
 ## Run it locally
 
 No build step, no dependencies:
@@ -125,7 +127,7 @@ Run the tests (Node 20+, no dependencies):
 node --test
 ```
 
-The suite covers URL parsing, the secret scanner, README language detection, the risk scan, project-profile detection, score normalisation and the live hash check (digest parsing, file selection, OTX verdicts) — the places where a silent bug would produce a wrong answer. `scripts/check.py` verifies that every local asset referenced by `index.html` exists and that the social preview image stays small; run it with `python3 scripts/check.py`.
+The suite covers URL parsing, the secret scanner, README language detection, the risk scan, project-profile detection, score normalisation and the live hash check (digest parsing, file selection, OTX verdicts, cache freshness, request strategy, rate-limit handling and every summary state) — the places where a silent bug would produce a wrong answer. `scripts/check.py` verifies that every local asset referenced by `index.html` exists and that the social preview image stays small; run it with `python3 scripts/check.py`.
 
 ## Roadmap
 

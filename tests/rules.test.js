@@ -6,7 +6,9 @@ const assert = require('node:assert');
 const {
   parseRepo, scanText, fmt, detectProfile, readmeLangInfo,
   claimsMatch, scanRisk, scoreChecks, sha256Of, liveTargets,
-  verdictFromOtx, PROFILES
+  verdictFromOtx, checkHash, liveSummaryModel, liveEmptyStatus,
+  otxCacheFresh, otxCacheUsable, otxCacheTtl, OTX_CACHE_PREFIX,
+  PROFILES
 } = require('../assets/app.js');
 
 test('parseRepo accepts a full GitHub URL', () => {
@@ -436,4 +438,245 @@ test('verdictFromOtx marks a total failure as unanswered', () => {
   const v = verdictFromOtx('abc', null, null);
   assert.strictEqual(v.answered, false);
   assert.strictEqual(v.verdict, 'unknown');
+});
+
+/* ------------------------------------------------------------------ */
+/* OTX caching, request strategy and the per-repository summary         */
+/* ------------------------------------------------------------------ */
+
+function storageMock() {
+  const map = new Map();
+  return {
+    getItem: key => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => { map.set(key, String(value)); },
+    removeItem: key => { map.delete(key); },
+    key: i => Array.from(map.keys())[i] || null,
+    get length() { return map.size; },
+    clear: () => map.clear()
+  };
+}
+
+const AV_CLEAN = {
+  analysis: { plugins: { clamav: { results: {} }, msdefender: { results: {} } } }
+};
+const AV_THREAT = {
+  analysis: { plugins: { clamav: { results: { detection: 'Win.Test' } }, msdefender: { results: {} } } }
+};
+const NO_AV = {
+  analysis: { plugins: { yarad: { results: { detection: [{ rule_name: 'InnoSetupInstaller' }] } } } }
+};
+const PULSES = { pulse_info: { count: 2, pulses: [{ name: 'Family' }] } };
+
+function mockFetch(handler) {
+  const calls = [];
+  const original = global.fetch;
+  global.fetch = (url, init) => {
+    calls.push(String(url));
+    return Promise.resolve(handler(String(url), init));
+  };
+  return {
+    calls,
+    restore() { global.fetch = original; }
+  };
+}
+
+function response(body, status) {
+  return new Response(JSON.stringify(body), {
+    status: status || 200,
+    headers: { 'content-type': 'application/json' }
+  });
+}
+
+function doneRow(verdict) {
+  return { status: 'done', verdict, rateLimited: false, retryAt: 0 };
+}
+
+function failedRow(rateLimited) {
+  return {
+    status: 'failed',
+    rateLimited: !!rateLimited,
+    retryAt: rateLimited ? Date.now() + 600000 : 0
+  };
+}
+
+function liveModel(rows, extra) {
+  return Object.assign({
+    status: 'done', rows, rateLimited: false, retryAt: 0, autoRetries: 0
+  }, extra);
+}
+
+test('OTX cache keeps unknown answers for a day and real verdicts for a week', () => {
+  assert.strictEqual(otxCacheTtl({ verdict: 'unknown' }), 86400000);
+  assert.strictEqual(otxCacheTtl({ verdict: 'pulse' }), 86400000);
+  assert.strictEqual(otxCacheTtl({ verdict: 'clean' }), 7 * 86400000);
+  assert.strictEqual(otxCacheTtl({ verdict: 'threat' }), 7 * 86400000);
+});
+
+test('OTX cache tells fresh, stale and unusable entries apart', () => {
+  const now = Date.now();
+  const fresh = { at: now - 1000, verdict: { verdict: 'clean' } };
+  const stale = { at: now - 8 * 86400000, verdict: { verdict: 'clean' } };
+  const ancient = { at: now - 100 * 86400000, verdict: { verdict: 'clean' } };
+  assert.strictEqual(otxCacheFresh(fresh, now), true);
+  assert.strictEqual(otxCacheFresh(stale, now), false);
+  assert.strictEqual(otxCacheUsable(stale, now), true);
+  assert.strictEqual(otxCacheUsable(ancient, now), false);
+  assert.strictEqual(otxCacheFresh(null, now), false);
+});
+
+test('every repository gets an explicit empty state', () => {
+  assert.strictEqual(liveEmptyStatus({ allAssets: [] }, []), 'no-releases');
+  assert.strictEqual(liveEmptyStatus({ allAssets: [] }, [{ tag_name: 'v1' }]), 'no-assets');
+  assert.strictEqual(
+    liveEmptyStatus({ allAssets: [asset('a.exe', { digest: '' })] }, [{ tag_name: 'v1' }]),
+    'no-digest'
+  );
+  assert.strictEqual(
+    liveEmptyStatus({ allAssets: [asset('a.exe')] }, [{ tag_name: 'v1' }]),
+    'no-targets'
+  );
+});
+
+test('the summary names both engines when they checked every file', () => {
+  const model = liveModel([doneRow(verdictFromOtx('a', null, AV_CLEAN))]);
+  assert.strictEqual(model.rows.length, 1);
+  assert.strictEqual(liveSummaryModel(model).key, 'liveSumClean');
+  assert.match(liveSummaryModel(model).vars.engines, /ClamAV/);
+  assert.match(liveSummaryModel(model).vars.engines, /Microsoft Defender/);
+});
+
+test('the summary counts files without an antivirus answer as unchecked', () => {
+  const threat = verdictFromOtx('a', null, AV_THREAT);
+  const unknown = verdictFromOtx('b', null, NO_AV);
+  const model = liveModel([doneRow(threat), doneRow(unknown)]);
+  const summary = liveSummaryModel(model);
+  assert.strictEqual(summary.key, 'liveSumThreatPartial');
+  assert.strictEqual(summary.vars.u, 1);
+});
+
+test('the summary never calls an unchecked file clean', () => {
+  const unknown = verdictFromOtx('a', null, NO_AV);
+  assert.strictEqual(liveSummaryModel(liveModel([doneRow(unknown)])).key, 'liveSumUnknown');
+  const pulse = verdictFromOtx('b', PULSES, NO_AV);
+  assert.strictEqual(liveSummaryModel(liveModel([doneRow(pulse)])).key, 'liveSumPulseNoAv');
+});
+
+test('the summary reports a rate limit and the files already checked', () => {
+  const clean = verdictFromOtx('a', null, AV_CLEAN);
+  const limited = liveModel([doneRow(clean), failedRow(true)], {
+    rateLimited: true, retryAt: Date.now() + 600000
+  });
+  assert.strictEqual(liveSummaryModel(limited).key, 'liveSumPartialLimit');
+  assert.strictEqual(liveSummaryModel(limited).vars.u, 1);
+  const allFailed = liveModel([failedRow(true)], {
+    rateLimited: true, retryAt: Date.now() + 600000
+  });
+  assert.strictEqual(liveSummaryModel(allFailed).key, 'liveSumLimit');
+});
+
+test('the summary answers explicitly when there is nothing to check', () => {
+  assert.strictEqual(liveSummaryModel({ status: 'no-releases', rows: [] }).key, 'liveSumNoReleases');
+  assert.strictEqual(liveSummaryModel({ status: 'no-assets', rows: [] }).key, 'liveSumNoAssets');
+  assert.strictEqual(liveSummaryModel({ status: 'no-digest', rows: [] }).key, 'liveSumNoDigest');
+});
+
+test('verdictFromOtx reads a structured detection object', () => {
+  const v = verdictFromOtx('abc', null, {
+    analysis: { plugins: { msdefender: { results: { detection: { name: 'Trojan:Win32/X' } } } } }
+  });
+  assert.strictEqual(v.verdict, 'threat');
+  assert.strictEqual(v.detections[0].engine, 'Microsoft Defender');
+  assert.strictEqual(v.detections[0].label, 'Trojan:Win32/X');
+});
+
+test('checkHash asks /analysis once when an antivirus verdict exists', async () => {
+  global.localStorage = storageMock();
+  const mock = mockFetch(() => response(AV_CLEAN));
+  try {
+    const v = await checkHash('a'.repeat(64));
+    assert.strictEqual(v.verdict, 'clean');
+    assert.strictEqual(mock.calls.length, 1);
+    assert.match(mock.calls[0], /\/analysis$/);
+  } finally {
+    mock.restore();
+    delete global.localStorage;
+  }
+});
+
+test('checkHash stops on a 429 instead of pretending the file was never checked', async () => {
+  global.localStorage = storageMock();
+  const mock = mockFetch(() => new Response('{"detail":"limit"}', { status: 429 }));
+  try {
+    await assert.rejects(checkHash('b'.repeat(64)), err => err.rateLimited === true);
+    assert.strictEqual(mock.calls.length, 1);
+  } finally {
+    mock.restore();
+    delete global.localStorage;
+  }
+});
+
+test('checkHash asks for community reports only when no antivirus checked the file', async () => {
+  global.localStorage = storageMock();
+  const mock = mockFetch(url => response(/\/general$/.test(url) ? PULSES : NO_AV));
+  try {
+    const v = await checkHash('c'.repeat(64));
+    assert.strictEqual(v.verdict, 'pulse');
+    assert.strictEqual(v.pulses, 2);
+    assert.strictEqual(mock.calls.length, 2);
+  } finally {
+    mock.restore();
+    delete global.localStorage;
+  }
+});
+
+test('a fresh cached answer is used without another OTX request', async () => {
+  global.localStorage = storageMock();
+  const hash = 'd'.repeat(64);
+  global.localStorage.setItem(OTX_CACHE_PREFIX + hash, JSON.stringify({
+    at: Date.now(),
+    verdict: verdictFromOtx(hash, null, AV_CLEAN)
+  }));
+  const mock = mockFetch(() => { throw new Error('network must not be used'); });
+  try {
+    const v = await checkHash(hash);
+    assert.strictEqual(v.verdict, 'clean');
+    assert.strictEqual(mock.calls.length, 0);
+  } finally {
+    mock.restore();
+    delete global.localStorage;
+  }
+});
+
+test('a stale cached answer is shown and marked as saved when OTX is rate-limited', async () => {
+  global.localStorage = storageMock();
+  const hash = 'e'.repeat(64);
+  global.localStorage.setItem(OTX_CACHE_PREFIX + hash, JSON.stringify({
+    at: Date.now() - 8 * 86400000,
+    verdict: verdictFromOtx(hash, null, AV_CLEAN)
+  }));
+  const mock = mockFetch(() => new Response('{}', { status: 429 }));
+  try {
+    const v = await checkHash(hash);
+    assert.strictEqual(v.verdict, 'clean');
+    assert.strictEqual(v.stale, true);
+    assert.ok(v.cachedAt > 0);
+  } finally {
+    mock.restore();
+    delete global.localStorage;
+  }
+});
+
+test('checkHash treats a missing analysis report as unknown and still asks for pulses', async () => {
+  global.localStorage = storageMock();
+  const mock = mockFetch(url => /\/analysis$/.test(url)
+    ? new Response('{}', { status: 404 })
+    : response(PULSES));
+  try {
+    const v = await checkHash('f'.repeat(64));
+    assert.strictEqual(v.verdict, 'pulse');
+    assert.strictEqual(mock.calls.length, 2);
+  } finally {
+    mock.restore();
+    delete global.localStorage;
+  }
 });

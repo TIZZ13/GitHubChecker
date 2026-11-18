@@ -27,18 +27,20 @@ The score never depends on the network beyond GitHub, and it never changes over 
 
 1. GitHub publishes a `sha256` digest for every release asset in the releases API. The page reads the digest, so a file can be identified without downloading a single byte.
 2. Only the **newest release** is checked. If its assets have no digest, older releases are used. Up to **three** files are checked, installers first (`.exe`, `.msi`, `.dmg`, `.pkg`, `.AppImage`, `.deb`, `.rpm`, `.apk`), then archives, then anything else.
-3. Each hash is looked up in **AlienVault OTX**, two public endpoints per file: `/general` (community pulses) and `/analysis` (antivirus results). The browser sends the hash and nothing else; the file is never downloaded.
+3. Each hash is looked up in **AlienVault OTX**. The page asks `/analysis` first, because it already carries the antivirus verdicts; `/general` (community pulses) is requested only when no antivirus has seen the hash. That halves the number of public requests per audit. The browser sends the hash and nothing else; the file is never downloaded.
 4. Only real antivirus engines get a vote: **ClamAV** and **Microsoft Defender**. OTX also runs YARA and several classifiers, but they fire on harmless installers (for example `InnoSetupInstaller`) or on signed software, so their output is not treated as a virus verdict.
-5. The result per file is one of:
+5. OTX allows 100 requests per hour per IP without a key. Answers are cached in `localStorage` by hash: a real verdict for 7 days, an "unknown" answer for 24 hours. Re-opening the same repository or switching modes makes no request at all. If OTX is rate-limited or does not answer, a saved answer up to 90 days old may be shown and is explicitly marked as saved. A 10-minute cooldown stops the run on the first 429 instead of spending requests on the remaining files; the check then retries the failed files automatically up to two times, and a visible **Check again** button retries them by hand after the cooldown. Cached and already-checked files are kept.
+6. The result per file is one of:
    - **Viruses found** — ClamAV or Microsoft Defender returned a detection. The report names the engine, the signature and every engine that checked the file.
    - **No viruses** — both engines returned an empty result for a file they checked. The report says who checked it.
    - **Reports mention it** — the hash appears in community pulses but no engine detected anything. The report shows how many reports.
    - **Not checked** — OTX has no antivirus report for the hash. This is *unknown*, not *clean*.
-   - **Check failed** — the service did not answer or rate-limited the request. The file is left with its VirusTotal and OTX links so it can be checked by hand.
-6. Above the file list, a summary line answers the question directly: whether viruses were found and which engines checked the files. If some files could not be checked, the summary says so.
-7. Each row links to the full OTX report and to VirusTotal for the same hash, and offers a copy-hash button.
+   - **Check failed** — the service did not answer or rate-limited the request. The row says why, keeps its VirusTotal and OTX links, and is retried rather than left as a dead end.
+7. Above the file list, a summary line answers the question directly: whether viruses were found and which engines checked the files. If some files could not be checked, the summary says so. It never turns a missing report into a "clean" verdict.
+8. Each row links to the full OTX report and to VirusTotal for the same hash, and offers a copy-hash button.
+9. The card is shown for **every** repository in both modes. When there is nothing to look up, it says which case applies instead of disappearing: no releases, no attached files, no SHA-256 digest, or no file that can be matched by hash. It then offers the release page and, when a hash is missing, a manual VirusTotal upload link.
 
-The lookup is capped at three files with a short pause between them because the OTX endpoint is public and needs no key. It runs after the report is on screen, is cached per audit so switching modes does not refetch, and **never touches `scoreChecks`**: the score stays identical in Russian and English, today and a year from now.
+The lookup runs after the report is on screen and **never touches `scoreChecks`**: the score stays identical in Russian and English, today and a year from now.
 
 ## Project detection
 
@@ -205,7 +207,7 @@ Downloader mode adds a separate card built from the risk scan and release metada
 - which risky behaviours the README already declares (declared behaviour is shown, not punished);
 - whether checksums or a signature exist;
 - whether the file is unsigned, inside a password-protected archive, or asks for administrator rights;
-- if there is nothing to download (a library, a website, source-only), the card says so and hides the VirusTotal action;
+- if there is nothing to download (a library, a website, source-only), the card says so and still shows the virus block with its explicit "nothing to check" state;
 - when the release file has no published SHA-256, a note that the hash cannot be looked up and a link to upload it to VirusTotal.
 
 The card never says "safe". The virus block reports what the engines saw, names them, and always ends with the caveat that no detection is not a guarantee.

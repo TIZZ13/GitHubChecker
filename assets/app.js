@@ -1,7 +1,7 @@
 /* GitHub Checker — static GitHub repository audit.
    No build step, no dependencies, no backend.
-   The page talks to api.github.com and, in downloader mode only, to the
-   public AlienVault OTX indicator API (a file hash at a time, never a file). */
+   The page talks to api.github.com and to the public AlienVault OTX
+   indicator API in both modes (a file hash at a time, never a file). */
 (function () {
   'use strict';
 
@@ -50,7 +50,8 @@
     score: 0,
     catScores: {},
     rate: null,
-    showAll: false
+    showAll: false,
+    otxTimer: null
   };
 
   /* ------------------------------------------------------------------ */
@@ -136,15 +137,12 @@
       safetyUnsigned: 'Файл не подписан — Windows SmartScreen может предупредить. Это не признак вируса, но и не подтверждение безопасности.',
       safetyArchive: 'Релиз лежит в архиве с паролем: антивирус не увидит содержимое, пока ты его не распакуешь.',
       safetyAdmin: 'Программа просит права администратора — это даёт ей широкий доступ к системе.',
-      safetyNoScan: 'Файлы из релизов не проверены антивирусом.',
       safetyNoFiles: 'В релизах нет готовых файлов: скачивать нечего, код ставится из исходников или через пакетный менеджер.',
       safetySite: 'Это сайт: устанавливать ничего не нужно, он открывается в браузере.',
-      safetyVt: 'Проверь скачанный файл на VirusTotal — это бесплатно.',
-      safetyVtBtn: 'Открыть VirusTotal',
       safetyNotGuarantee: 'Это не гарантия безопасности. Решение запускать файл всегда за тобой.',
       liveHead: 'Проверка на вирусы',
       liveSource: 'AlienVault OTX',
-      liveNote: 'Хеш каждого файла сверяется с AlienVault OTX: его проверяют антивирусы ClamAV и Microsoft Defender. Файл не скачивается — уходит только хеш.',
+      liveNote: 'SHA-256 каждого файла сверяется с AlienVault OTX. Вердикт дают только антивирусы ClamAV и Microsoft Defender; YARA и классификаторы не считаются детекциями. Файл не скачивается — уходит только хеш.',
       liveChecking: 'Проверяю…',
       liveLoading: 'Проверяю файлы на вирусы…',
       liveWaiting: 'В очереди',
@@ -153,6 +151,7 @@
       livePulse: 'Есть упоминания',
       liveUnknown: 'Не проверено',
       liveFailed: 'Не удалось проверить',
+      liveLimitChip: 'Лимит OTX',
       liveAnd: 'и',
       liveEngines: 'Найдено: {list}. Проверяли: {engines}.',
       liveCleanNote: 'Проверено: {engines}. Вирусов не найдено.',
@@ -160,25 +159,41 @@
       livePulseNoAv: 'Антивирусы файл не проверяли. Упоминаний в отчётах сообщества: {n}.',
       livePulses: 'Упоминается в отчётах сообщества: {n}',
       liveUnknownNote: 'Антивирусы не проверяли этот хеш — отчётов нет. Это «неизвестно», а не «чисто».',
+      liveStale: 'Сохранённый результат от {date}: сервис сейчас не ответил.',
+      liveCacheNote: 'Часть результатов взята из сохранённых ответов OTX.',
       liveSumThreat: 'Итог проверки на вирусы: вирусы найдены в {k} из {m} файлов. Проверяли: {engines}.',
-      liveSumThreatPartial: 'Итог проверки на вирусы: вирусы найдены в {k} из {m} файлов, осталось непроверенных: {u}. Проверяли: {engines}.',
+      liveSumThreatPartial: 'Итог проверки на вирусы: вирусы найдены в {k} из {m} файлов, не проверено: {u}. Проверяли: {engines}.',
       liveSumClean: 'Итог проверки на вирусы: вирусов не найдено. Проверяли: {engines}.',
       liveSumCleanPulse: 'Итог проверки на вирусы: вирусов не найдено. Проверяли: {engines}. Есть упоминания в отчётах сообщества.',
-      liveSumPartial: 'Итог проверки на вирусы: вирусов не найдено в {k} из {m} файлов, осталось непроверенных: {u}. Проверяли: {engines}.',
+      liveSumPartial: 'Итог проверки на вирусы: вирусов не найдено в {k} из {m} файлов, не проверено: {u}. Проверяли: {engines}.',
+      liveSumPartialLimit: 'Итог проверки на вирусы: вирусов не найдено в {k} из {m} файлов, не проверено из-за лимита OTX: {u}. Проверяли: {engines}.',
       liveSumPulseNoAv: 'Итог проверки на вирусы: антивирусы эти файлы не проверяли, но есть отчёты сообщества. Это «неизвестно», а не «чисто».',
       liveSumUnknown: 'Итог проверки на вирусы: антивирусы эти файлы не проверяли. Неизвестно — это не «чисто».',
-      liveSumFailed: 'Итог проверки на вирусы: сервис не ответил, проверить не удалось.',
-      liveNoDigest: 'GitHub не отдал SHA-256 для этого файла.',
-      liveErrorNote: 'Сервис не ответил. Проверь файл по ссылкам вручную.',
-      liveLimit: 'Сервис ограничил запросы, попробуй позже.',
+      liveSumFailed: 'Итог проверки на вирусы: OTX не ответил, проверить не удалось.',
+      liveSumLimit: 'Итог проверки на вирусы: OTX исчерпал лимит запросов, проверка не завершена. Следующая попытка в {time}.',
+      liveSumNoReleases: 'Итог проверки на вирусы: в релизах нет файлов — проверять нечего.',
+      liveSumNoAssets: 'Итог проверки на вирусы: в релизах нет приложенных файлов — проверять нечего.',
+      liveSumNoDigest: 'Итог проверки на вирусы: GitHub не отдал SHA-256 для файлов, сопоставить их с отчётами нельзя.',
+      liveNoReleases: 'Релизов с файлами пока нет. Если автор приложит файл к релизу, он появится здесь.',
+      liveNoAssets: 'К релизам не приложено ни одного файла, поэтому скачивать и проверять нечего.',
+      liveNoDigest: 'Без SHA-256 файл нельзя сопоставить с отчётом. Скачай файл и проверь его на VirusTotal вручную.',
+      liveNoTargets: 'В релизах нет файлов, которые можно сопоставить с отчётом по хешу.',
+      liveOpenReleases: 'Открыть релизы',
+      liveVtUpload: 'Проверить файл на VirusTotal',
+      liveCoverage: 'Проверка: {m} из {n} файлов релиза, установщики и архивы первыми.',
+      liveCoverageDigest: 'Проверка: {m} из {n} файлов релиза; SHA-256 есть у {k}.',
+      liveLimitNote: 'OTX не ответил: исчерпан лимит 100 запросов в час с этого IP. Следующая попытка в {time}.',
+      liveErrorNote: 'OTX не ответил. Проверь соединение и повтори.',
+      liveAutoRetry: 'Проверка повторится автоматически в {time}.',
+      liveRetryWait: 'Лимит OTX. Следующая попытка в {time}.',
+      liveRetryManual: 'Автоповтор больше не сработает. Нажми «Проверить ещё раз» позже.',
       liveNotScore: 'Проверка на вирусы не влияет на балл: балл считается только по правилам и не меняется со временем. Отсутствие детекций не гарантирует чистоту — новый файл может быть ещё не известен базам.',
       liveVt: 'VirusTotal',
       liveOtx: 'Отчёт OTX',
       liveCopyHash: 'Скопировать хеш',
       liveCopied: 'Хеш скопирован',
       liveCheckAgain: 'Проверить ещё раз',
-      liveNoTargets: 'В релизах нет файлов с хешем — проверять по хешу нечего.',
-      liveProgress: 'Проверено {n} из {m}',
+      liveProgress: 'Обработано {n} из {m}',
       unitMb: 'МБ', unitKb: 'КБ', unitB: 'Б',
       userHeader: 'GitHub Checker — проверка перед скачиванием: {repo}, {score}/100',
       userIntro: 'Это не гарантия безопасности. Ниже — что известно о проекте, что говорят базы угроз о файлах и что стоит сделать перед запуском.',
@@ -291,15 +306,12 @@
       safetyUnsigned: 'The file is not signed — Windows SmartScreen may warn you. That is not a sign of a virus, but it is not proof of safety either.',
       safetyArchive: 'The release is a password-protected archive: antivirus cannot see inside until you unpack it.',
       safetyAdmin: 'The program asks for administrator rights — that gives it broad access to the system.',
-      safetyNoScan: 'The release files were not scanned by antivirus.',
       safetyNoFiles: 'There are no ready-made files in the releases: there is nothing to download, the code is installed from source or through a package manager.',
       safetySite: 'This is a website: there is nothing to install, it opens in the browser.',
-      safetyVt: 'Check the downloaded file on VirusTotal — it is free.',
-      safetyVtBtn: 'Open VirusTotal',
       safetyNotGuarantee: 'This is not a safety guarantee. The decision to run a file is always yours.',
       liveHead: 'Virus check',
       liveSource: 'AlienVault OTX',
-      liveNote: 'Each file hash is looked up in AlienVault OTX, where ClamAV and Microsoft Defender check it. The file is never downloaded — only the hash leaves the browser.',
+      liveNote: 'The SHA-256 of each file is looked up in AlienVault OTX. Only the antivirus engines ClamAV and Microsoft Defender give a verdict; YARA rules and classifiers are not detections. The file is never downloaded — only its hash is sent.',
       liveChecking: 'Checking…',
       liveLoading: 'Checking the files for viruses…',
       liveWaiting: 'Queued',
@@ -308,6 +320,7 @@
       livePulse: 'Reports mention it',
       liveUnknown: 'Not checked',
       liveFailed: 'Check failed',
+      liveLimitChip: 'OTX limit',
       liveAnd: 'and',
       liveEngines: 'Found: {list}. Checked by: {engines}.',
       liveCleanNote: 'Checked by: {engines}. No viruses found.',
@@ -315,25 +328,41 @@
       livePulseNoAv: 'No antivirus has checked this file. Community reports: {n}.',
       livePulses: 'Community reports mentioning it: {n}',
       liveUnknownNote: 'No antivirus has checked this hash — there are no reports. That is unknown, not clean.',
+      liveStale: 'Saved result from {date}: the service did not answer just now.',
+      liveCacheNote: 'Some results come from saved OTX answers.',
       liveSumThreat: 'Virus check result: viruses found in {k} of {m} files. Checked by: {engines}.',
       liveSumThreatPartial: 'Virus check result: viruses found in {k} of {m} files, {u} not checked. Checked by: {engines}.',
       liveSumClean: 'Virus check result: no viruses found. Checked by: {engines}.',
       liveSumCleanPulse: 'Virus check result: no viruses found. Checked by: {engines}. Community reports mention the file.',
       liveSumPartial: 'Virus check result: no viruses found in {k} of {m} files, {u} not checked. Checked by: {engines}.',
+      liveSumPartialLimit: 'Virus check result: no viruses found in {k} of {m} files, {u} not checked because of the OTX limit. Checked by: {engines}.',
       liveSumPulseNoAv: 'Virus check result: no antivirus has checked these files, but community reports exist. That is unknown, not clean.',
       liveSumUnknown: 'Virus check result: no antivirus has checked these files. That is unknown, not clean.',
-      liveSumFailed: 'Virus check result: the service did not answer, the check failed.',
-      liveNoDigest: 'GitHub did not provide a SHA-256 for this file.',
-      liveErrorNote: 'The service did not answer. Check the file through the links yourself.',
-      liveLimit: 'The service rate-limited the requests, try again later.',
+      liveSumFailed: 'Virus check result: OTX did not answer, the check failed.',
+      liveSumLimit: 'Virus check result: OTX hit its request limit, the check is not finished. Next attempt at {time}.',
+      liveSumNoReleases: 'Virus check result: the releases have no files — there is nothing to check.',
+      liveSumNoAssets: 'Virus check result: the releases have no attached files — there is nothing to check.',
+      liveSumNoDigest: 'Virus check result: GitHub did not provide a SHA-256 for the files, so they cannot be matched to a report.',
+      liveNoReleases: 'There are no releases with files yet. If the author attaches a file to a release, it will appear here.',
+      liveNoAssets: 'No files are attached to the releases, so there is nothing to download or check.',
+      liveNoDigest: 'Without a SHA-256 the file cannot be matched to a report. Download it and check it on VirusTotal manually.',
+      liveNoTargets: 'The releases have no files that can be matched to a report by hash.',
+      liveOpenReleases: 'Open releases',
+      liveVtUpload: 'Check a file on VirusTotal',
+      liveCoverage: 'Check: {m} of {n} release files, installers and archives first.',
+      liveCoverageDigest: 'Check: {m} of {n} release files; {k} have a SHA-256.',
+      liveLimitNote: 'OTX did not answer: the limit of 100 requests per hour from this IP is exhausted. Next attempt at {time}.',
+      liveErrorNote: 'OTX did not answer. Check your connection and try again.',
+      liveAutoRetry: 'The check will repeat automatically at {time}.',
+      liveRetryWait: 'OTX limit. The next attempt is at {time}.',
+      liveRetryManual: 'Automatic retry has stopped. Press "Check again" later.',
       liveNotScore: 'The virus check does not affect the score: the score comes from the rules alone and does not change over time. A lack of detections is not a guarantee — a new file may still be unknown to the databases.',
       liveVt: 'VirusTotal',
       liveOtx: 'OTX report',
       liveCopyHash: 'Copy hash',
       liveCopied: 'Hash copied',
       liveCheckAgain: 'Check again',
-      liveNoTargets: 'The releases have no file with a hash — there is nothing to look up.',
-      liveProgress: 'Checked {n} of {m}',
+      liveProgress: 'Processed {n} of {m}',
       unitMb: 'MB', unitKb: 'KB', unitB: 'B',
       userHeader: 'GitHub Checker — pre-download check: {repo}, {score}/100',
       userIntro: 'This is not a safety guarantee. Below is what is known about the project, what threat databases say about its files, and what to do before running it.',
@@ -2156,6 +2185,12 @@
 
   var OTX_API = 'https://otx.alienvault.com/api/v1/indicators/';
   var LIVE_MAX_FILES = 3;
+  var OTX_CACHE_PREFIX = 'githubchecker.otx.';
+  var OTX_CACHE_TTL = 7 * 86400000;
+  var OTX_UNKNOWN_TTL = 86400000;
+  var OTX_CACHE_MAX_AGE = 90 * 86400000;
+  var OTX_COOLDOWN_MS = 10 * 60 * 1000;
+  var OTX_AUTO_RETRIES = 2;
   /* OTX runs many plugins. Only real antivirus engines get a vote: the YARA
      plugin also fires on harmless installers (InnoSetupInstaller), and the
      classifier plugins return alerts for signed software, so neither is a
@@ -2200,6 +2235,80 @@
     return names.slice(0, -1).join(', ') + ' ' + t('liveAnd') + ' ' + names[names.length - 1];
   }
 
+  function clock(ms) {
+    try {
+      return new Date(ms).toLocaleTimeString(state.lang === 'ru' ? 'ru-RU' : 'en-US', {
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) { return '—'; }
+  }
+
+  /* Cached OTX answers live in localStorage, keyed by hash and nothing else.
+     Re-checking the same repository, or reloading the page, must not spend the
+     public 100/hour request budget again. A stale answer may be shown only
+     when the live service fails, and it is marked as saved. */
+  function otxCacheTtl(verdict) {
+    return verdict && (verdict.verdict === 'unknown' || verdict.verdict === 'pulse')
+      ? OTX_UNKNOWN_TTL : OTX_CACHE_TTL;
+  }
+
+  function otxCacheFresh(entry, now) {
+    if (!entry || !entry.verdict || typeof entry.at !== 'number') return false;
+    var age = now - entry.at;
+    return age >= 0 && age < otxCacheTtl(entry.verdict);
+  }
+
+  function otxCacheUsable(entry, now) {
+    if (!entry || !entry.verdict || typeof entry.at !== 'number') return false;
+    var age = now - entry.at;
+    return age >= 0 && age < OTX_CACHE_MAX_AGE;
+  }
+
+  function readOtxCache(hash) {
+    try {
+      var raw = localStorage.getItem(OTX_CACHE_PREFIX + hash);
+      if (!raw) return null;
+      var entry = JSON.parse(raw);
+      return entry && entry.verdict && typeof entry.at === 'number' ? entry : null;
+    } catch (e) { return null; }
+  }
+
+  function writeOtxCache(hash, verdict) {
+    if (!verdict) return;
+    try {
+      var copy = {};
+      Object.keys(verdict).forEach(function (k) {
+        if (k !== 'stale' && k !== 'cachedAt') copy[k] = verdict[k];
+      });
+      localStorage.setItem(OTX_CACHE_PREFIX + hash, JSON.stringify({ at: Date.now(), verdict: copy }));
+      pruneOtxCache();
+    } catch (e) { }
+  }
+
+  function pruneOtxCache() {
+    try {
+      var now = Date.now();
+      var drop = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (!key || key.indexOf(OTX_CACHE_PREFIX) !== 0) continue;
+        try {
+          var entry = JSON.parse(localStorage.getItem(key) || 'null');
+          if (!otxCacheUsable(entry, now)) drop.push(key);
+        } catch (e) { drop.push(key); }
+      }
+      drop.forEach(function (key) { localStorage.removeItem(key); });
+    } catch (e) { }
+  }
+
+  function markOtxStale(entry) {
+    var v = {};
+    Object.keys(entry.verdict).forEach(function (k) { v[k] = entry.verdict[k]; });
+    v.stale = true;
+    v.cachedAt = entry.at;
+    return v;
+  }
+
   /* Pure: network payloads in, one small object out. Testable without a DOM. */
   function verdictFromOtx(hash, general, analysis) {
     var info = (general && general.pulse_info) || {};
@@ -2213,8 +2322,19 @@
       checkedIds.push(id);
       var label = '';
       var d = res.detection;
-      if (Array.isArray(d)) label = d.length ? String(d[0].rule_name || d[0].name || '') : '';
-      else if (typeof d === 'string') label = d;
+      if (Array.isArray(d)) {
+        if (d.length) {
+          var first = d[0];
+          label = first && typeof first === 'object'
+            ? String(first.rule_name || first.name || '')
+            : String(first || '');
+        }
+      } else if (typeof d === 'string') {
+        label = d;
+      } else if (d && typeof d === 'object') {
+        label = String(d.rule_name || d.name || '');
+      }
+      if (d && !label && !(Array.isArray(d) && !d.length)) label = 'detected';
       if (label) detections.push({ engine: AV_ENGINES[id], label: label });
     });
     var avEngines = engineList(checkedIds);
@@ -2247,7 +2367,16 @@
         limited.rateLimited = true;
         throw limited;
       }
-      if (!res.ok) throw new Error('http ' + res.status);
+      if (res.status === 404) {
+        var notFound = new Error('not found');
+        notFound.notFound = true;
+        throw notFound;
+      }
+      if (!res.ok) {
+        var http = new Error('http ' + res.status);
+        http.status = res.status;
+        throw http;
+      }
       return res.json();
     }, function (err) {
       if (timer) clearTimeout(timer);
@@ -2255,39 +2384,96 @@
     });
   }
 
-  function checkHash(hash) {
+  /* One request for a file that has an antivirus result: /analysis carries the
+     ClamAV and Defender verdicts. /general is asked only when no antivirus has
+     seen the hash, because community pulses cannot change a real AV verdict.
+     That halves the quota used by the check. Every answer is cached. */
+  function checkHash(hash, offline) {
+    var entry = readOtxCache(hash);
+    var now = Date.now();
+    if (entry && otxCacheFresh(entry, now)) return Promise.resolve(entry.verdict);
+
+    var stale = entry && otxCacheUsable(entry, now) ? markOtxStale(entry) : null;
+    if (offline) {
+      if (stale) return Promise.resolve(stale);
+      var off = new Error('rate limited');
+      off.rateLimited = true;
+      return Promise.reject(off);
+    }
+
     var base = OTX_API + 'file/' + hash;
-    var limited = false;
-    function ask(part) {
-      return otxJson(base + part).catch(function (err) {
-        if (err && err.rateLimited) limited = true;
-        return null;
+
+    function save(v) {
+      writeOtxCache(hash, v);
+      return v;
+    }
+
+    function fail(err) {
+      if (stale) return stale;
+      throw err;
+    }
+
+    function noReport() {
+      var v = verdictFromOtx(hash, null, null);
+      v.answered = true;
+      v.notFound = true;
+      return save(v);
+    }
+
+    function askGeneral(analysis) {
+      return otxJson(base + '/general').then(function (general) {
+        return save(verdictFromOtx(hash, general, analysis));
+      }, function (err) {
+        if (err && err.notFound) {
+          if (analysis) return save(verdictFromOtx(hash, null, analysis));
+          return noReport();
+        }
+        if (analysis) {
+          /* The antivirus answer is valid even if community pulses failed. */
+          return save(verdictFromOtx(hash, null, analysis));
+        }
+        return fail(err);
       });
     }
-    return Promise.all([ask('/general'), ask('/analysis')]).then(function (res) {
-      var v = verdictFromOtx(hash, res[0], res[1]);
-      if (!v.answered) {
-        var err = new Error('no answer');
-        err.rateLimited = limited;
-        throw err;
-      }
-      return v;
+
+    return otxJson(base + '/analysis').then(function (analysis) {
+      var v = verdictFromOtx(hash, null, analysis);
+      if (v.avEngines.length) return save(v);
+      return askGeneral(analysis);
+    }, function (err) {
+      if (err && err.notFound) return askGeneral(null);
+      return fail(err);
     });
+  }
+
+  function liveEmptyStatus(profile, releases) {
+    var all = (profile && profile.allAssets) || [];
+    if (!(releases || []).length) return 'no-releases';
+    if (!all.length) return 'no-assets';
+    if (!all.some(sha256Of)) return 'no-digest';
+    return 'no-targets';
   }
 
   function liveState() {
     var ctx = state.ctx;
     if (!ctx) return null;
     if (!ctx.live) {
+      var all = (ctx.profile && ctx.profile.allAssets) || [];
       var targets = liveTargets(ctx.profile);
       ctx.live = {
-        status: targets.length ? 'idle' : 'empty',
+        status: targets.length ? 'idle' : liveEmptyStatus(ctx.profile, ctx.releases),
         rows: targets.map(function (a) {
           return {
             name: a.name, size: a.size, url: a.url, hash: sha256Of(a),
-            status: 'waiting', verdict: null, rateLimited: false
+            status: 'waiting', verdict: null, rateLimited: false, retryAt: 0
           };
-        })
+        }),
+        assets: all.length,
+        checkable: all.filter(sha256Of).length,
+        rateLimited: false,
+        retryAt: 0,
+        autoRetries: 0,
+        halt: false
       };
     }
     return ctx.live;
@@ -2301,7 +2487,9 @@
   }
 
   function liveChip(row) {
-    if (row.status === 'failed') return { cls: 'failed', text: t(row.rateLimited ? 'liveLimit' : 'liveFailed') };
+    if (row.status === 'failed') {
+      return { cls: 'failed', text: t(row.rateLimited ? 'liveLimitChip' : 'liveFailed') };
+    }
     if (row.status !== 'done' || !row.verdict) {
       return { cls: 'waiting', text: t(row.status === 'loading' ? 'liveChecking' : 'liveWaiting') };
     }
@@ -2312,39 +2500,67 @@
   }
 
   function liveResult(row) {
-    if (row.status === 'failed') return t(row.rateLimited ? 'liveLimit' : 'liveErrorNote');
+    if (row.status === 'failed') {
+      if (row.rateLimited) {
+        return fmt(t('liveLimitNote'), { time: row.retryAt ? clock(row.retryAt) : '—' });
+      }
+      return t('liveErrorNote');
+    }
     if (row.status !== 'done' || !row.verdict) return '';
     var v = row.verdict;
     var engines = joinEngines(v.avEngines || []);
+    var text;
     if (v.verdict === 'threat') {
-      var list = v.detections.slice(0, 3).map(function (e) { return e.engine + ': ' + e.label; }).join('; ');
-      if (v.detections.length > 3) list += ' …';
-      return fmt(t('liveEngines'), { list: list, engines: engines });
-    }
-    if (v.verdict === 'clean') {
-      return fmt(t('liveCleanNote'), { engines: engines });
-    }
-    if (v.verdict === 'pulse') {
-      var text = v.avEngines.length
+      var list = (v.detections || []).slice(0, 3).map(function (e) {
+        return e.engine + ': ' + e.label;
+      }).join('; ');
+      if ((v.detections || []).length > 3) list += ' …';
+      text = fmt(t('liveEngines'), { list: list, engines: engines });
+    } else if (v.verdict === 'clean') {
+      text = fmt(t('liveCleanNote'), { engines: engines });
+    } else if (v.verdict === 'pulse') {
+      text = (v.avEngines || []).length
         ? fmt(t('livePulseNote'), { engines: engines, n: v.pulses })
         : fmt(t('livePulseNoAv'), { n: v.pulses });
-      if (v.pulseNames.length) text += ' — ' + v.pulseNames.join(' · ');
-      return text;
+      if ((v.pulseNames || []).length) text += ' — ' + v.pulseNames.join(' · ');
+    } else {
+      text = t('liveUnknownNote');
     }
-    return t('liveUnknownNote');
+    if (v.stale) {
+      text += ' ' + fmt(t('liveStale'), {
+        date: dateStr(v.cachedAt ? new Date(v.cachedAt).toISOString() : '')
+      });
+    }
+    return text;
   }
 
   /* The headline answer: which engines checked the files and whether they
-     found anything. Counts only finished rows, so a running check stays quiet. */
-  function liveSummary(live) {
+     found anything. Returns a descriptor so the wording can be tested without
+     a DOM. A running check stays quiet; an empty state still answers. */
+  function liveSummaryModel(live) {
     var rows = live.rows || [];
-    if (live.status !== 'done' || !rows.length) return '';
+    if (!rows.length) {
+      if (live.status === 'no-releases') return { cls: 'unknown', key: 'liveSumNoReleases' };
+      if (live.status === 'no-assets') return { cls: 'unknown', key: 'liveSumNoAssets' };
+      if (live.status === 'no-digest' || live.status === 'no-targets') {
+        return { cls: 'unknown', key: 'liveSumNoDigest' };
+      }
+      return null;
+    }
+    if (live.status === 'idle' || live.status === 'running') return null;
+
     var total = rows.length;
     var done = rows.filter(function (r) { return r.status === 'done' && r.verdict; });
-    if (!done.length) return summaryHtml('failed', t('liveSumFailed'));
+    var limit = !!(live.rateLimited || rows.some(function (r) { return r.rateLimited; }));
+    var limitVars = { time: live.retryAt ? clock(live.retryAt) : '—' };
+    if (!done.length) {
+      return limit
+        ? { cls: 'failed', key: 'liveSumLimit', vars: limitVars }
+        : { cls: 'failed', key: 'liveSumFailed' };
+    }
 
     var threats = done.filter(function (r) { return r.verdict.verdict === 'threat'; }).length;
-    var checked = done.filter(function (r) { return r.verdict.avEngines.length; });
+    var checked = done.filter(function (r) { return (r.verdict.avEngines || []).length; });
     var unchecked = total - checked.length;
     var ids = [];
     checked.forEach(function (r) {
@@ -2357,15 +2573,35 @@
     var pulses = done.some(function (r) { return r.verdict.pulses > 0; });
 
     if (threats) {
-      return summaryHtml('threat', unchecked
-        ? fmt(t('liveSumThreatPartial'), { k: threats, m: total, u: unchecked, engines: engines })
-        : fmt(t('liveSumThreat'), { k: threats, m: total, engines: engines }));
+      return {
+        cls: 'threat',
+        key: unchecked ? 'liveSumThreatPartial' : 'liveSumThreat',
+        vars: { k: threats, m: total, u: unchecked, engines: engines }
+      };
     }
-    if (!checked.length) return summaryHtml('unknown', t(pulses ? 'liveSumPulseNoAv' : 'liveSumUnknown'));
+    if (!checked.length) {
+      if (pulses) return { cls: 'unknown', key: 'liveSumPulseNoAv' };
+      if (limit) return { cls: 'failed', key: 'liveSumLimit', vars: limitVars };
+      return { cls: 'unknown', key: 'liveSumUnknown' };
+    }
     if (unchecked) {
-      return summaryHtml('unknown', fmt(t('liveSumPartial'), { k: checked.length, m: total, u: unchecked, engines: engines }));
+      return {
+        cls: 'unknown',
+        key: limit ? 'liveSumPartialLimit' : 'liveSumPartial',
+        vars: { k: checked.length, m: total, u: unchecked, engines: engines }
+      };
     }
-    return summaryHtml(pulses ? 'pulse' : 'clean', fmt(t(pulses ? 'liveSumCleanPulse' : 'liveSumClean'), { engines: engines }));
+    return {
+      cls: pulses ? 'pulse' : 'clean',
+      key: pulses ? 'liveSumCleanPulse' : 'liveSumClean',
+      vars: { engines: engines }
+    };
+  }
+
+  function liveSummary(live) {
+    var model = liveSummaryModel(live);
+    if (!model) return '';
+    return summaryHtml(model.cls, fmt(t(model.key), model.vars || {}));
   }
 
   function summaryHtml(cls, text) {
@@ -2388,19 +2624,48 @@
       '</div></li>';
   }
 
+  function liveCoverage(live) {
+    if (!live.rows.length || !live.assets) return '';
+    if (live.rows.length >= live.assets && live.checkable >= live.assets) return '';
+    var key = live.checkable < live.assets ? 'liveCoverageDigest' : 'liveCoverage';
+    return '<p class="live-coverage">' + esc(fmt(t(key), {
+      m: live.rows.length, n: live.assets, k: live.checkable
+    })) + '</p>';
+  }
+
+  function liveCachedNote(live) {
+    var stale = (live.rows || []).some(function (r) { return r.verdict && r.verdict.stale; });
+    return stale ? '<p class="live-cache-note">' + esc(t('liveCacheNote')) + '</p>' : '';
+  }
+
+  function liveEmptyNote(live) {
+    if (live.status === 'no-releases') return t('liveNoReleases');
+    if (live.status === 'no-assets') return t('liveNoAssets');
+    if (live.status === 'no-digest') return t('liveNoDigest');
+    return t('liveNoTargets');
+  }
+
+  function liveRetryNote(live) {
+    if (!live.rateLimited || !live.retryAt) return '';
+    if (Date.now() >= live.retryAt) return '';
+    if (live.autoRetries >= OTX_AUTO_RETRIES) {
+      return '<p class="live-retry-note">' + esc(t('liveRetryManual')) + '</p>';
+    }
+    return '<p class="live-retry-note">' + esc(fmt(t('liveAutoRetry'), { time: clock(live.retryAt) })) + '</p>';
+  }
+
   function liveCard() {
     var live = liveState();
     if (!live) return '';
-    var p = state.ctx.profile || {};
-    if (!p.hasBinaries && !p.hasArchive) return '';
-    if (!live.rows.length) {
-      return '<p class="live-none" id="liveCheck">' + esc(t('liveNoTargets')) + '</p>';
-    }
+    var repo = (state.ctx && state.ctx.repo) || {};
+    var releasesUrl = 'https://github.com/' + (repo.full_name || '') + '/releases';
     var finished = live.rows.filter(function (r) { return r.status === 'done' || r.status === 'failed'; }).length;
     var failed = live.rows.some(function (r) { return r.status === 'failed'; });
-    var head = live.status === 'done'
-      ? fmt(t('liveProgress'), { n: finished, m: live.rows.length })
-      : (live.status === 'running' ? t('liveLoading') : '');
+    var head = live.rows.length
+      ? (live.status === 'done'
+        ? fmt(t('liveProgress'), { n: finished, m: live.rows.length })
+        : (live.status === 'running' ? t('liveLoading') : ''))
+      : '';
 
     var html = '<div class="live-card" id="liveCheck" aria-live="polite">' +
       '<div class="live-head"><h3>' + esc(t('liveHead')) + '</h3>' +
@@ -2408,12 +2673,28 @@
       (head ? '<span class="live-progress">' + esc(head) + '</span>' : '') +
       '</div>' +
       liveSummary(live) +
-      '<p class="live-note">' + esc(t('liveNote')) + '</p>' +
-      '<ul class="live-files">';
-    live.rows.forEach(function (row, i) { html += liveRow(row, i); });
-    html += '</ul>';
-    if (failed) {
-      html += '<button class="ghost live-retry" id="liveRetry" type="button">' + esc(t('liveCheckAgain')) + '</button>';
+      liveCoverage(live) +
+      liveCachedNote(live) +
+      '<p class="live-note">' + esc(t('liveNote')) + '</p>';
+
+    if (live.rows.length) {
+      html += '<ul class="live-files">';
+      live.rows.forEach(function (row, i) { html += liveRow(row, i); });
+      html += '</ul>';
+      if (failed) {
+        html += '<button class="ghost live-retry" id="liveRetry" type="button">' + esc(t('liveCheckAgain')) + '</button>';
+      }
+      html += liveRetryNote(live);
+    } else {
+      html += '<p class="live-empty">' + esc(liveEmptyNote(live)) + '</p>' +
+        '<div class="live-actions">' +
+        '<a class="ghost" href="' + esc(releasesUrl) + '" target="_blank" rel="noopener">' +
+        esc(t('liveOpenReleases')) + '</a>' +
+        (live.status === 'no-digest' || live.status === 'no-targets'
+          ? '<a class="ghost" href="https://www.virustotal.com/gui/home/upload" target="_blank" rel="noopener">' +
+            esc(t('liveVtUpload')) + '</a>'
+          : '') +
+        '</div>';
     }
     html += '<p class="live-foot">' + esc(t('liveNotScore')) + '</p></div>';
     return html;
@@ -2437,37 +2718,79 @@
     if (box.firstChild) wrap.parentNode.replaceChild(box.firstChild, wrap);
   }
 
-  function runLiveCheck() {
+  function scheduleLiveRetry(live) {
+    if (state.otxTimer) {
+      clearTimeout(state.otxTimer);
+      state.otxTimer = null;
+    }
+    if (!live || !live.rateLimited || !live.retryAt) return;
+    if (live.autoRetries >= OTX_AUTO_RETRIES) return;
+    var wait = live.retryAt - Date.now();
+    if (wait < 1000) wait = 1000;
+    if (wait > 3600000) wait = 3600000;
+    state.otxTimer = setTimeout(function () {
+      state.otxTimer = null;
+      if (!state.ctx || state.ctx.live !== live) return;
+      if (live.status !== 'done') return;
+      if (!live.rows.some(function (r) { return r.status === 'failed'; })) return;
+      live.autoRetries++;
+      live.retryAt = 0;
+      runLiveCheck(true);
+    }, wait);
+  }
+
+  function runLiveCheck(force) {
     var live = liveState();
     if (!live || !live.rows.length) return Promise.resolve();
-    if (live.status === 'running' || live.status === 'done') return Promise.resolve();
+    if (live.status === 'running') return Promise.resolve();
+    if (live.status === 'done' && !force) return Promise.resolve();
+    if (state.otxTimer) {
+      clearTimeout(state.otxTimer);
+      state.otxTimer = null;
+    }
     live.status = 'running';
+    live.rateLimited = false;
+    live.retryAt = 0;
+    live.halt = false;
     setStatus(t('liveLoading'));
     paintLive();
 
     var chain = Promise.resolve();
     live.rows.forEach(function (row, i) {
+      if (row.status === 'done' && row.verdict) return;
       chain = chain.then(function () {
         row.status = 'loading';
+        row.rateLimited = false;
+        row.retryAt = 0;
         paintLiveRow(i);
-        return checkHash(row.hash).then(function (v) {
+        return checkHash(row.hash, live.halt).then(function (v) {
           row.status = 'done';
           row.verdict = v;
         }, function (err) {
           row.status = 'failed';
           row.rateLimited = !!(err && err.rateLimited);
+          if (row.rateLimited) {
+            live.rateLimited = true;
+            live.retryAt = Date.now() + OTX_COOLDOWN_MS;
+            row.retryAt = live.retryAt;
+            live.halt = true;
+          }
         }).then(function () {
           paintLiveRow(i);
-          /* stay polite: the public OTX endpoint has no key and no quota to spare */
-          return new Promise(function (resolve) { setTimeout(resolve, 350); });
+          if (!live.halt) {
+            /* stay polite: the public OTX endpoint has no key and no quota to spare */
+            return new Promise(function (resolve) { setTimeout(resolve, 300); });
+          }
         });
       });
     });
 
     return chain.then(function () {
       live.status = 'done';
+      live.halt = false;
       setStatus('');
       paintLive();
+      scheduleLiveRetry(live);
     });
   }
 
@@ -2503,24 +2826,16 @@
     if (p.hasArchive) items.push(t('safetyArchive'));
     if (p.hasAdmin) items.push(t('safetyAdmin'));
 
-    var live = liveState();
-    var canLookup = !!(live && live.rows.length);
-    if (p.hasBinaries && !canLookup) items.push(t('safetyNoScan'));
-
     var html = '<div class="safety-card">' +
       '<div class="safety-head"><h2>' + esc(t('safetyHead')) + '</h2>' +
       '<span class="profile-label">LC·02</span></div>' +
       '<ul class="safety-list">';
     items.forEach(function (line) { html += '<li>' + esc(line) + '</li>'; });
     html += '</ul>';
-    if (hasFiles) html += liveCard();
-    html += (hasFiles && !canLookup
-      ? '<div class="safety-actions">' +
-      '<p class="safety-vt">' + esc(t('safetyVt')) + '</p>' +
-      '<a class="ghost" href="https://www.virustotal.com/gui/home/upload" target="_blank" rel="noopener">' +
-      esc(t('safetyVtBtn')) + '</a></div>'
-      : '') +
-      '<p class="safety-not">' + esc(t('safetyNotGuarantee')) + '</p>' +
+    /* The virus card answers for every repository: checked files, no release
+       files, or no published hash. It is never hidden in downloader mode. */
+    html += liveCard();
+    html += '<p class="safety-not">' + esc(t('safetyNotGuarantee')) + '</p>' +
       '</div>';
     return html;
   }
@@ -3090,6 +3405,10 @@
       fail(new HttpError(400, 'input', 'input'));
       return;
     }
+    if (state.otxTimer) {
+      clearTimeout(state.otxTimer);
+      state.otxTimer = null;
+    }
 
     setBusy(true);
     $('result').hidden = true;
@@ -3323,14 +3642,24 @@
       var retry = e.target.closest ? e.target.closest('#liveRetry') : null;
       if (retry && state.ctx && state.ctx.live) {
         var live = state.ctx.live;
-        live.status = 'idle';
+        if (live.status === 'running') return;
+        if (live.retryAt && Date.now() < live.retryAt) {
+          toast(fmt(t('liveRetryWait'), { time: clock(live.retryAt) }));
+          return;
+        }
         live.rows.forEach(function (row) {
+          if (row.status !== 'failed') return;
           row.status = 'waiting';
           row.verdict = null;
           row.rateLimited = false;
+          row.retryAt = 0;
         });
+        live.status = 'idle';
+        live.rateLimited = false;
+        live.retryAt = 0;
+        live.autoRetries = 0;
         paintLive();
-        runLiveCheck();
+        runLiveCheck(true);
         return;
       }
       var btn = e.target.closest ? e.target.closest('.copy') : null;
@@ -3357,6 +3686,13 @@
       sha256Of: sha256Of,
       liveTargets: liveTargets,
       verdictFromOtx: verdictFromOtx,
+      checkHash: checkHash,
+      liveSummaryModel: liveSummaryModel,
+      liveEmptyStatus: liveEmptyStatus,
+      otxCacheFresh: otxCacheFresh,
+      otxCacheUsable: otxCacheUsable,
+      otxCacheTtl: otxCacheTtl,
+      OTX_CACHE_PREFIX: OTX_CACHE_PREFIX,
       PROFILES: PROFILES
     };
     return;

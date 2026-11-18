@@ -1,6 +1,6 @@
 # Security policy
 
-GitHub Checker is a static page. It has no backend, no accounts and no database. It talks to `api.github.com` and sends only a release file's SHA-256 to `otx.alienvault.com` when it checks the release files. It never downloads the file itself. A GitHub token, if you add one, stays in your browser's `localStorage`.
+GitHub Checker is a static page. It has no backend, no accounts and no database. It talks to `api.github.com` and sends only a release file's SHA-256 to `otx.alienvault.com` when it checks the release files. It never downloads the file itself. A GitHub token, if you add one, stays in your browser's `localStorage`. Virus-check answers are cached there too, keyed by hash, so a repeat audit makes no request; the cache holds only the verdict, engine names and signatures, never file contents.
 
 ## Reporting a vulnerability
 
@@ -19,6 +19,7 @@ In scope:
 - the audit page and the rule engine in `assets/app.js`;
 - secret detection, including cases where a detected value is rendered, logged or sent anywhere;
 - a rule that produces a clearly wrong score from public repository data;
+- a cached reply that makes an unchecked or unknown file look checked;
 - a hash, file name or URL that leaks into a third-party request;
 
 Out of scope:
