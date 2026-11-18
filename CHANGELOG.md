@@ -11,7 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- The project is now **GitHub Checker**. The product name changed everywhere: page title, header, footer, share card, SVG badge, download file names, docs, issue templates and launch copy. The repository is renamed to `TIZZ13/GitHubChecker`, so the site now lives at `https://tizz13.github.io/GitHubChecker/`; the previous Pages address forwards to it.
+- The project is now **GitHub Checker**. The product name changed everywhere: page title, header, footer, share card, SVG badge, download file names, docs, issue templates and launch copy. The repository is renamed to `TIZZ13/GitHubChecker`, so the site now lives at `https://tizz13.github.io/GitHubChecker/`; the old repository URL redirects there.
 - Browser storage keys moved to `githubchecker.*` with a one-time read of the old `launchcheck.*` keys, so language, mode and a saved token survive the rename.
 - Downloader-mode wording no longer says a file can only be checked with an antivirus: it now describes what the hash lookup does, and the safety brief separates integrity (checksums, signature) from reputation (databases, sandboxes).
 
