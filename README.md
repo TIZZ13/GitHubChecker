@@ -1,14 +1,16 @@
-# LaunchCheck
+# GitHub Checker
 
 **Paste a GitHub repo link. Get a score out of 100, a plain-language list of what is broken, and ready-to-paste prompts for your AI agent.**
 
 Two audit modes: **author** (fix your own project) and **downloader** (decide whether a project is worth downloading). The mode can be switched after an audit — the score is recomputed from data already loaded, with no new requests.
 
+In downloader mode the page also checks the release files themselves: each file's SHA-256 is read from GitHub and looked up in public threat databases. The file is never downloaded.
+
 No signup. No install. No backend. No analytics.
 
 [**Try it →**](https://tizz13.github.io/launchcheck/) · [Русская версия](#русский)
 
-![LaunchCheck](assets/og.jpg)
+![GitHub Checker](assets/og.jpg)
 
 ---
 
@@ -22,30 +24,32 @@ Usually it is not because the project is bad. It is because a stranger opens the
 2. How do I run it?
 3. Why should I trust it?
 
-LaunchCheck answers those questions before anyone else has to. It reads the public repository, runs 23 fixed checks and shows exactly what is missing — in the order that matters.
+GitHub Checker answers those questions before anyone else has to. It reads the public repository, runs 23 fixed checks and shows exactly what is missing — in the order that matters.
 
-The same page works from the other side too. If you are about to download a stranger's program, the **downloader** mode runs 21 different checks: is the source open, does the code do something risky that the README never mentions, are there checksums, are the side effects and the way back documented. It never says a file is safe or virus-free — it lists what is known and what is not.
+The same page works from the other side too. If you are about to download a stranger's program, the **downloader** mode runs 21 different checks: is the source open, does the code do something risky that the README never mentions, are there checksums, are the side effects and the way back documented. It then looks up the release files by hash and shows what public engines and community reports say about them. It never says a file is safe or virus-free — it lists what is known and what is not.
 
 ![Example report card](assets/card-demo-en.jpg)
 
 ## What you get
 
-![LaunchCheck report](assets/screenshot-en.jpg)
+![GitHub Checker report](assets/screenshot-en.jpg)
 
 - **A score out of 100** across six categories, with a color-coded breakdown.
 - **A project profile first** — what this is (desktop app, web app, CLI, library, game, bot, docs), on which platform, how it is distributed, and which rules therefore do not apply.
 - **A list of issues in plain language** — what is wrong, why it costs you users, and how bad it is. Each one has a concrete action, not just a complaint.
 - **A ready-to-paste prompt for every issue** in author mode, written for Claude Code, Codex, Cursor or any other agent. Copy one, or copy all and let the agent work through the list.
 - **A file safety brief** in downloader mode: which source files were read, what the code actually does, which of it the README declares, and whether checksums exist. Facts, not a verdict.
+- **A live hash check** in downloader mode: every release file's SHA-256 (published by GitHub) is looked up in AlienVault OTX and shown with verdicts from ClamAV, Microsoft Defender and YARA rules, plus direct links to the full report and to VirusTotal. "No data" means unknown, never clean.
 - **A shareable card (1200×630 PNG)** for social media and a **static SVG badge** for your README.
 
 ## How it works
 
-LaunchCheck is a static page. There is no server, no database and no AI model:
+GitHub Checker is a static page. There is no server, no database and no AI model:
 
 1. The browser calls the public GitHub API a few times: repository metadata, file tree, README, releases, and a few small source files for the risk scan.
 2. A deterministic rule engine runs one of two fixed profiles — 23 checks for authors, 21 for downloaders. Same repository → same score, today or in a year, in Russian or English.
-3. Results are rendered locally. Nothing is sent anywhere except `api.github.com`.
+3. In downloader mode the page also reads the SHA-256 that GitHub publishes for each release asset and looks the hash up in AlienVault OTX, a public threat-intelligence database. Only the hash leaves the browser; the file itself is never fetched.
+4. Results are rendered locally. Nothing is sent anywhere except `api.github.com` and, in downloader mode, `otx.alienvault.com`.
 
 Checks that do not apply are not scored at all and are listed under "Not scored": a library needs no live demo, a desktop app can satisfy the demo rule with a screenshot, `requirements.txt` is not punished for having no lockfile, and a small new or joke project gets halved weights for CI, tests, linter and contributor rules with wording that says why.
 
@@ -85,14 +89,14 @@ The score is not a verdict on your code quality. In author mode it measures how 
 
 - **Not an AI product.** There is no model, no prompt, no key to leak. The prompts are generated from templates, filled with what the checks found.
 - **Not a security audit.** It catches the obvious mistakes — a committed `.env`, a private key, a hardcoded token — and tells you to rotate the keys. It does not replace a real audit.
-- **Not a virus scan.** Downloader mode reads the source, the README and the release metadata, and reports signals. It never downloads or runs a release file, never hashes it and never claims that anything is safe. For that, use VirusTotal or a sandbox — the report links to both.
+- **Not a guarantee.** Downloader mode reads the source, the README and the release metadata, then looks up file hashes in public databases. It never downloads or runs a release file and never claims that anything is safe. A hash that no database has seen means "unknown", not "clean". For a verdict, open the VirusTotal or sandbox link in the report.
 - **Not a code review.** It looks at the repository as a package: files, configs, docs, releases.
 - **Not a gatekeeper.** A low score does not mean the project is bad. Plenty of great tools score badly because nobody wrote the boring parts.
 
 ## Privacy
 
 - There is no backend and no analytics.
-- The only network requests go to `api.github.com`.
+- The only network requests go to `api.github.com` and, in downloader mode, `otx.alienvault.com` (a file hash and nothing else).
 - A GitHub token is optional, stays in your browser's `localStorage` and is sent only to `api.github.com`. It is needed for private repositories and for the 5000 req/hour limit instead of 60.
 - Detected secret values are never rendered, logged or sent anywhere. The report only says which file looked suspicious and what kind of secret it resembles.
 
@@ -119,12 +123,12 @@ Run the tests (Node 20+, no dependencies):
 node --test tests/
 ```
 
-The suite covers URL parsing, the secret scanner, README language detection, the risk scan, project-profile detection and score normalisation — the places where a silent bug would produce a wrong score. `scripts/check.py` verifies that every local asset referenced by `index.html` exists and that the social preview image stays small; run it with `python3 scripts/check.py`.
+The suite covers URL parsing, the secret scanner, README language detection, the risk scan, project-profile detection, score normalisation and the live hash check (digest parsing, file selection, OTX verdicts) — the places where a silent bug would produce a wrong answer. `scripts/check.py` verifies that every local asset referenced by `index.html` exists and that the social preview image stays small; run it with `python3 scripts/check.py`.
 
 ## Roadmap
 
 - [ ] History: keep the last score per repo and show the difference
-- [ ] `launchcheck.config.json` to disable checks that do not apply
+- [ ] `githubchecker.config.json` to disable checks that do not apply
 - [ ] More stacks and monorepo awareness
 - [ ] Ready-made PR that fixes the easy findings (license, issue templates, `.gitignore`)
 - [ ] Optional dynamic badge endpoint

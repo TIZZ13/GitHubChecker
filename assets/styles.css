@@ -1,4 +1,4 @@
-/* LaunchCheck — visual identity: a printed inspection dossier on cream paper.
+/* GitHub Checker — visual identity: a printed inspection dossier on cream paper.
    Type: Literata (display), Onest (text), JetBrains Mono (numbers, labels).
    All fonts are self-hosted in assets/fonts (OFL), no third-party requests. */
 
@@ -736,6 +736,126 @@ h1 em {
   font-size: 9.5px;
   letter-spacing: 0.02em;
   color: var(--muted);
+}
+
+/* live file check */
+.live-card {
+  margin-top: 14px;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--rule-2);
+  background: var(--paper);
+}
+
+.live-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 7px;
+  border-bottom: 1px dashed var(--rule);
+}
+.live-head h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.live-src {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--red);
+  border: 1px solid currentColor;
+  padding: 1px 5px;
+}
+.live-progress {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.live-note {
+  margin: 8px 0 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  max-width: 92ch;
+}
+
+.live-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+
+.live-file { border-top: 1px solid var(--rule); padding-top: 8px; }
+.live-file:first-child { border-top: 0; padding-top: 0; }
+
+.live-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.live-name b { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.live-size { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+
+.live-chip {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border: 1px solid currentColor;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.live-chip.threat { color: var(--red); }
+.live-chip.pulse { color: var(--ochre); }
+.live-chip.unknown { color: var(--muted); }
+.live-chip.waiting { color: var(--dim); border-style: dashed; }
+.live-chip.failed { color: var(--petrol); }
+
+.live-result {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.live-file.threat .live-result { color: var(--red-deep); }
+
+.live-links {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.live-links a { color: var(--petrol); }
+.live-links a:hover { color: var(--red); }
+.linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.linkish:hover { color: var(--red); }
+
+.live-retry { margin-top: 10px; }
+.live-foot {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--rule);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+}
+.live-none {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
 }
 
 

@@ -1,6 +1,6 @@
-# Contributing to LaunchCheck
+# Contributing to GitHub Checker
 
-Thanks for wanting to help. LaunchCheck is a small, dependency-free static site, so contributing is mostly about writing good rules and honest text.
+Thanks for wanting to help. GitHub Checker is a small, dependency-free static site, so contributing is mostly about writing good rules and honest text.
 
 ## The most useful contribution: a new check
 
@@ -11,7 +11,7 @@ A check is a small rule plus a prompt. To add one, open an issue first and descr
 3. **The cost.** Why does it matter to a stranger who just found the repository?
 4. **The prompt.** What exactly should an AI agent do to fix it?
 
-Rules must be deterministic: the same repository must always produce the same result. No network calls beyond `api.github.com`, no external services, no heuristics that depend on time or popularity.
+Rules must be deterministic: the same repository must always produce the same result. The rule engine makes no network calls beyond `api.github.com`: the live hash lookup in downloader mode is a separate evidence layer and never changes the score, so it cannot make a result depend on time or popularity.
 
 There are two profiles, `PROFILES.dev` and `PROFILES.user`. A check belongs to one profile and one category, carries a weight, and must declare when it does not apply (`skip` plus `skipReason`) instead of quietly failing. Downloader-mode text must never claim that a file is safe or virus-free: it reports signals, and the decision stays with the reader.
 

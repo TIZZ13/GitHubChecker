@@ -1,11 +1,38 @@
-/* LaunchCheck — static GitHub repository audit.
+/* GitHub Checker — static GitHub repository audit.
    No build step, no dependencies, no backend.
-   Everything runs in the browser and talks only to api.github.com. */
+   The page talks to api.github.com and, in downloader mode only, to the
+   public AlienVault OTX indicator API (a file hash at a time, never a file). */
 (function () {
   'use strict';
 
   var API = 'https://api.github.com';
-  var LS = { token: 'launchcheck.token', lang: 'launchcheck.lang', last: 'launchcheck.last', mode: 'launchcheck.mode' };
+  var LS = { token: 'githubchecker.token', lang: 'githubchecker.lang', last: 'githubchecker.last', mode: 'githubchecker.mode' };
+
+  /* The project used to be called LaunchCheck. Reading the old keys means an
+     existing visitor keeps their language, mode and token after the rename. */
+  var LS_OLD = { token: 'launchcheck.token', lang: 'launchcheck.lang', last: 'launchcheck.last', mode: 'launchcheck.mode' };
+
+  function storeGet(key) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v === null && LS_OLD[key]) v = localStorage.getItem(LS_OLD[key]);
+      return v;
+    } catch (e) { return null; }
+  }
+
+  function storeSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      if (LS_OLD[key]) localStorage.removeItem(LS_OLD[key]);
+    } catch (e) { }
+  }
+
+  function storeDel(key) {
+    try {
+      localStorage.removeItem(key);
+      if (LS_OLD[key]) localStorage.removeItem(LS_OLD[key]);
+    } catch (e) { }
+  }
 
   var state = {
     lang: 'ru',
@@ -29,7 +56,7 @@
   var UI = {
     ru: {
       kicker: 'Бесплатно · без установки · без регистрации',
-      pageTitle: 'LaunchCheck — проверь проект до того, как его увидят',
+      pageTitle: 'GitHub Checker — проверь репозиторий до того, как его увидят',
       h1: 'Проверь проект<br>до того, как его <em>увидят</em>',
       lead: 'Вставь ссылку на GitHub-репозиторий. Выбери, кто ты: автор проекта или человек, который собирается его скачать. Получи оценку, понятные объяснения и точные шаги.',
       noteHead: 'Полевая заметка 01',
@@ -58,7 +85,7 @@
       tokenCheck: 'Проверить токен',
       tokenClear: 'Удалить токен',
       done: 'Готово',
-      foot: 'LaunchCheck · статический сайт на GitHub Pages',
+      foot: 'GitHub Checker · статический сайт на GitHub Pages',
       loadingRepo: 'Читаю репозиторий…',
       loadingTree: 'Смотрю файлы…',
       loadingReadme: 'Читаю README…',
@@ -95,13 +122,13 @@
       profileNoteUnknown: 'Тип проекта определить точно не удалось — правила применены без поправок.',
       skippedLabel: 'Не оценивалось',
       safetyHead: 'Проверка файлов',
-      safetyIntro: 'LaunchCheck читает код и метаданные. Он не скачивает и не запускает файлы.',
-      safetySourceOpen: 'Исходный код открыт: прочитано {n} файлов.',
-      safetySourceClosed: 'Исходный код закрыт: проверить, что внутри, можно только антивирусом.',
+      safetyIntro: 'GitHub Checker читает код и метаданные. Он не скачивает и не запускает файлы.',
+      safetySourceOpen: 'Исходный код открыт: прочитано {n}.',
+      safetySourceClosed: 'Исходный код закрыт: о содержимом можно судить только по базам и песочницам.',
       safetyNoNetwork: 'В проверенных файлах нет сетевых запросов.',
       safetyNetwork: 'В коде есть сетевые запросы: программа может связываться с интернетом.',
       safetyDeclared: 'README предупреждает о поведении: {items}. Это заявлено, а не скрыто.',
-      safetyNoChecksums: 'Контрольных сумм и подписи нет: проверить файл можно только антивирусом.',
+      safetyNoChecksums: 'Контрольных сумм и подписи нет: целостность файла проверить нечем.',
       safetyUnsigned: 'Файл не подписан — Windows SmartScreen может предупредить. Это не признак вируса, но и не подтверждение безопасности.',
       safetyArchive: 'Релиз лежит в архиве с паролем: антивирус не увидит содержимое, пока ты его не распакуешь.',
       safetyAdmin: 'Программа просит права администратора — это даёт ей широкий доступ к системе.',
@@ -111,7 +138,31 @@
       safetyVt: 'Проверь скачанный файл на VirusTotal — это бесплатно.',
       safetyVtBtn: 'Открыть VirusTotal',
       safetyNotGuarantee: 'Это не гарантия безопасности. Решение запускать файл всегда за тобой.',
-      userHeader: 'LaunchCheck — проверка перед скачиванием: {repo}, {score}/100',
+      liveHead: 'Живая проверка файлов',
+      liveSource: 'AlienVault OTX',
+      liveNote: 'Хеш каждого файла сверяется с AlienVault OTX: отчёты сообщества и вердикты ClamAV, Microsoft Defender и правил YARA. Файл не скачивается — уходит только хеш.',
+      liveLoading: 'Проверяю…',
+      liveWaiting: 'В очереди',
+      liveThreat: 'Движки нашли угрозу',
+      livePulse: 'Есть упоминания',
+      liveUnknown: 'Нет данных',
+      liveFailed: 'Не удалось проверить',
+      liveEngines: 'Сработало правил: {n} — {list}',
+      livePulses: 'Упоминается в отчётах сообщества: {n}',
+      liveUnknownNote: 'Хеш не встречается в отчётах OTX. Это «неизвестно», а не «чисто».',
+      liveNoDigest: 'GitHub не отдал SHA-256 для этого файла.',
+      liveErrorNote: 'Сервис не ответил. Проверь файл по ссылкам вручную.',
+      liveLimit: 'Сервис ограничил запросы, попробуй позже.',
+      liveNotScore: 'Живая проверка не влияет на балл: балл считается только по правилам и не меняется со временем.',
+      liveVt: 'VirusTotal',
+      liveOtx: 'Отчёт OTX',
+      liveCopyHash: 'Скопировать хеш',
+      liveCopied: 'Хеш скопирован',
+      liveCheckAgain: 'Проверить ещё раз',
+      liveNoTargets: 'В релизах нет файлов с хешем — проверять по хешу нечего.',
+      liveProgress: 'Проверено {n} из {m}',
+      unitMb: 'МБ', unitKb: 'КБ', unitB: 'Б',
+      userHeader: 'GitHub Checker — проверка перед скачиванием: {repo}, {score}/100',
       userIntro: 'Это не гарантия безопасности и не проверка на вирусы. Ниже — что известно о проекте и что стоит сделать перед запуском.',
       gradesUser: { great: 'Можно пробовать осторожно', good: 'Сначала проверь', meh: 'Много вопросов', bad: 'Лучше не запускать' },
       card: 'Скачать карточку',
@@ -138,15 +189,15 @@
       privateHint: 'Если репозиторий приватный, добавь токен.',
       severity: { critical: 'критично', high: 'важно', medium: 'средне', low: 'мелочь' },
       cats: { security: 'Безопасность', runnable: 'Запуск', quality: 'Качество', repo: 'Репозиторий', product: 'Продукт', trust: 'Доверие' },
-      promptHeader: 'LaunchCheck — отчёт для {repo}: {score}/100',
+      promptHeader: 'GitHub Checker — отчёт для {repo}: {score}/100',
       promptIntro: 'Ниже список проблем по порядку важности. Исправь их по одной, не меняя остальное поведение проекта.',
-      cardFooter: 'launchcheck · {host}',
-      cta: 'LaunchCheck бесплатный, без рекламы и без регистрации. Если он помог — поставь звезду на GitHub, это помогает проекту.',
+      cardFooter: 'github checker · {host}',
+      cta: 'GitHub Checker бесплатный, без рекламы и без регистрации. Если он помог — поставь звезду на GitHub, это помогает проекту.',
       ctaBtn: 'Поставить звезду'
     },
     en: {
       kicker: 'Free · no install · no signup',
-      pageTitle: 'LaunchCheck — audit your GitHub repo before you launch it',
+      pageTitle: 'GitHub Checker — audit your repository before people see it',
       h1: 'Check your project<br>before people <em>see it</em>',
       lead: 'Paste a GitHub repository link. Choose who you are: the author, or someone about to download it. Get a score, plain explanations, and exact next steps.',
       noteHead: 'Field note 01',
@@ -175,7 +226,7 @@
       tokenCheck: 'Check token',
       tokenClear: 'Remove token',
       done: 'Done',
-      foot: 'LaunchCheck · a static site on GitHub Pages',
+      foot: 'GitHub Checker · a static site on GitHub Pages',
       loadingRepo: 'Reading the repository…',
       loadingTree: 'Looking at the files…',
       loadingReadme: 'Reading the README…',
@@ -212,13 +263,13 @@
       profileNoteUnknown: 'The project type could not be determined reliably, so the rules were applied without adjustments.',
       skippedLabel: 'Not scored',
       safetyHead: 'File check',
-      safetyIntro: 'LaunchCheck reads code and metadata. It does not download or run any files.',
-      safetySourceOpen: 'The source is open: {n} files were read.',
-      safetySourceClosed: 'The source is closed: only antivirus can tell what is inside.',
+      safetyIntro: 'GitHub Checker reads code and metadata. It does not download or run any files.',
+      safetySourceOpen: 'The source is open: {n} read.',
+      safetySourceClosed: 'The source is closed: only threat databases and sandboxes can tell what is inside.',
       safetyNoNetwork: 'The files that were read make no network requests.',
       safetyNetwork: 'The code makes network requests: the program may talk to the internet.',
       safetyDeclared: 'The README warns about this behaviour: {items}. It is declared, not hidden.',
-      safetyNoChecksums: 'There are no checksums and no signature: antivirus is the only check you can run.',
+      safetyNoChecksums: 'There are no checksums and no signature: there is no way to verify the file’s integrity.',
       safetyUnsigned: 'The file is not signed — Windows SmartScreen may warn you. That is not a sign of a virus, but it is not proof of safety either.',
       safetyArchive: 'The release is a password-protected archive: antivirus cannot see inside until you unpack it.',
       safetyAdmin: 'The program asks for administrator rights — that gives it broad access to the system.',
@@ -228,7 +279,31 @@
       safetyVt: 'Check the downloaded file on VirusTotal — it is free.',
       safetyVtBtn: 'Open VirusTotal',
       safetyNotGuarantee: 'This is not a safety guarantee. The decision to run a file is always yours.',
-      userHeader: 'LaunchCheck — pre-download check: {repo}, {score}/100',
+      liveHead: 'Live file check',
+      liveSource: 'AlienVault OTX',
+      liveNote: 'Each file hash is looked up in AlienVault OTX: community reports and verdicts from ClamAV, Microsoft Defender and YARA rules. The file is never downloaded — only the hash leaves the browser.',
+      liveLoading: 'Checking…',
+      liveWaiting: 'Queued',
+      liveThreat: 'Engines detected a threat',
+      livePulse: 'Reports mention it',
+      liveUnknown: 'No data',
+      liveFailed: 'Check failed',
+      liveEngines: 'Rules that fired: {n} — {list}',
+      livePulses: 'Community reports mentioning it: {n}',
+      liveUnknownNote: 'The hash does not appear in OTX reports. That means unknown, not clean.',
+      liveNoDigest: 'GitHub did not provide a SHA-256 for this file.',
+      liveErrorNote: 'The service did not answer. Check the file through the links yourself.',
+      liveLimit: 'The service rate-limited the requests, try again later.',
+      liveNotScore: 'The live check does not affect the score: the score comes from the rules alone and does not change over time.',
+      liveVt: 'VirusTotal',
+      liveOtx: 'OTX report',
+      liveCopyHash: 'Copy hash',
+      liveCopied: 'Hash copied',
+      liveCheckAgain: 'Check again',
+      liveNoTargets: 'The releases have no file with a hash — there is nothing to look up.',
+      liveProgress: 'Checked {n} of {m}',
+      unitMb: 'MB', unitKb: 'KB', unitB: 'B',
+      userHeader: 'GitHub Checker — pre-download check: {repo}, {score}/100',
       userIntro: 'This is not a safety guarantee and not a virus scan. Below is what is known about the project and what to do before running it.',
       gradesUser: { great: 'Try with care', good: 'Check first', meh: 'Many questions', bad: 'Better not run' },
       card: 'Download card',
@@ -255,10 +330,10 @@
       privateHint: 'If the repository is private, add a token.',
       severity: { critical: 'critical', high: 'high', medium: 'medium', low: 'low' },
       cats: { security: 'Security', runnable: 'Runnable', quality: 'Quality', repo: 'Repository', product: 'Product', trust: 'Trust' },
-      promptHeader: 'LaunchCheck report for {repo}: {score}/100',
+      promptHeader: 'GitHub Checker report for {repo}: {score}/100',
       promptIntro: 'Below are the problems in order of importance. Fix them one by one without changing the rest of the project.',
-      cardFooter: 'launchcheck · {host}',
-      cta: 'LaunchCheck is free, ad-free and needs no signup. If it helped, star it on GitHub — that is how the project grows.',
+      cardFooter: 'github checker · {host}',
+      cta: 'GitHub Checker is free, ad-free and needs no signup. If it helped, star it on GitHub — that is how the project grows.',
       ctaBtn: 'Star on GitHub'
     }
   };
@@ -468,7 +543,7 @@
         if (p.kind === 'hardcoded credential') {
           var lit = /['"]([^'"]*)['"]\s*$/.exec(value);
           /* Reject dotted identifiers such as localStorage keys: a real secret
-             is not shaped like `launchcheck.token`. */
+             is not shaped like `githubchecker.token`. */
           if (lit && /^[a-z][\w-]*(\.[a-z][\w-]*)+$/i.test(lit[1])) continue;
         }
         hits.push(p.kind);
@@ -651,7 +726,16 @@
     var assets = [];
     (ctx.releases || []).forEach(function (r) {
       (r.assets || []).forEach(function (a) {
-        assets.push({ name: a.name || '', size: a.size || 0, downloads: a.download_count || 0, tag: r.tag_name || '', url: a.browser_download_url || '' });
+        assets.push({
+          name: a.name || '',
+          size: a.size || 0,
+          downloads: a.download_count || 0,
+          tag: r.tag_name || '',
+          url: a.browser_download_url || '',
+          /* GitHub computes a SHA-256 for every uploaded release asset, so the
+             file can be identified without downloading a single byte. */
+          digest: a.digest || ''
+        });
       });
     });
     var binaryAssets = assets.filter(function (a) { return BINARY_ASSET_RE.test(a.name) && !/source|src/i.test(a.name); });
@@ -2028,13 +2112,279 @@
     return html;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Live file check                                                     */
+  /*                                                                     */
+  /* GitHub publishes a SHA-256 for every release asset, so a file can be */
+  /* identified without downloading it. AlienVault OTX answers by hash    */
+  /* from the browser and is the only third party this page talks to.     */
+  /* None of this touches the score: the score is deterministic, the      */
+  /* live check is evidence and changes as the databases change.          */
+  /* ------------------------------------------------------------------ */
+
+  var OTX_API = 'https://otx.alienvault.com/api/v1/indicators/';
+  var LIVE_MAX_FILES = 3;
+  var ENGINE_NAMES = { clamav: 'ClamAV', msdefender: 'Microsoft Defender', yarad: 'YARA', yara: 'YARA' };
+
+  function sha256Of(asset) {
+    var m = /^sha256:([a-f0-9]{64})$/i.exec(String((asset && asset.digest) || ''));
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function liveTargets(profile, newestTag) {
+    var p = profile || (state.ctx && state.ctx.profile);
+    if (!p) return [];
+    var all = p.allAssets || [];
+    var newest = newestTag !== undefined ? newestTag
+      : ((state.ctx && state.ctx.releases && state.ctx.releases[0] && state.ctx.releases[0].tag_name) || '');
+    var fresh = newest ? all.filter(function (a) { return a.tag === newest; }) : [];
+    var pool = fresh.filter(sha256Of);
+    if (!pool.length) pool = all.filter(sha256Of);
+    var rank = function (a) {
+      if (/\.(exe|msi|msix|dmg|pkg|appimage|deb|rpm|apk|ipa)$/i.test(a.name)) return 0;
+      if (/\.(7z|zip|rar|tgz|tar\.gz)$/i.test(a.name)) return 1;
+      return 2;
+    };
+    return pool.sort(function (a, b) {
+      var d = rank(a) - rank(b);
+      return d !== 0 ? d : (b.downloads - a.downloads);
+    }).slice(0, LIVE_MAX_FILES);
+  }
+
+  /* Pure: network payloads in, one small object out. Testable without a DOM. */
+  function verdictFromOtx(hash, general, analysis) {
+    var info = (general && general.pulse_info) || {};
+    var pulses = typeof info.count === 'number' ? info.count : (info.pulses || []).length;
+    var engines = [];
+    var plugins = (analysis && analysis.analysis && analysis.analysis.plugins) || {};
+    Object.keys(plugins).forEach(function (id) {
+      var res = plugins[id] && plugins[id].results;
+      if (!res) return;
+      var d = res.detection;
+      var label = '';
+      if (Array.isArray(d)) label = d.length ? String(d[0].rule_name || d[0].name || '') : '';
+      else if (typeof d === 'string') label = d;
+      if (!label && Array.isArray(res.alerts) && res.alerts.length) label = String(res.alerts[0]);
+      if (!label) return;
+      engines.push({ engine: ENGINE_NAMES[id] || id, label: label });
+    });
+    return {
+      hash: hash,
+      answered: !!(general || analysis),
+      pulses: pulses,
+      pulseNames: (info.pulses || []).slice(0, 2).map(function (p) {
+        return String((p && p.name) || '');
+      }).filter(Boolean),
+      engines: engines,
+      verdict: engines.length ? 'threat' : (pulses ? 'pulse' : 'unknown')
+    };
+  }
+
+  function otxJson(url) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 9000) : null;
+    return fetch(url, {
+      headers: { accept: 'application/json' },
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      if (timer) clearTimeout(timer);
+      if (res.status === 429 || res.status === 403) {
+        var limited = new Error('rate limited');
+        limited.rateLimited = true;
+        throw limited;
+      }
+      if (!res.ok) throw new Error('http ' + res.status);
+      return res.json();
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      throw err;
+    });
+  }
+
+  function checkHash(hash) {
+    var base = OTX_API + 'file/' + hash;
+    var limited = false;
+    function ask(part) {
+      return otxJson(base + part).catch(function (err) {
+        if (err && err.rateLimited) limited = true;
+        return null;
+      });
+    }
+    return Promise.all([ask('/general'), ask('/analysis')]).then(function (res) {
+      var v = verdictFromOtx(hash, res[0], res[1]);
+      if (!v.answered) {
+        var err = new Error('no answer');
+        err.rateLimited = limited;
+        throw err;
+      }
+      return v;
+    });
+  }
+
+  function liveState() {
+    var ctx = state.ctx;
+    if (!ctx) return null;
+    if (!ctx.live) {
+      var targets = liveTargets(ctx.profile);
+      ctx.live = {
+        status: targets.length ? 'idle' : 'empty',
+        rows: targets.map(function (a) {
+          return {
+            name: a.name, size: a.size, url: a.url, hash: sha256Of(a),
+            status: 'waiting', verdict: null, rateLimited: false
+          };
+        })
+      };
+    }
+    return ctx.live;
+  }
+
+  function fmtSize(n) {
+    if (!n) return '';
+    if (n >= 1048576) return (n / 1048576).toFixed(1) + ' ' + t('unitMb');
+    if (n >= 1024) return Math.round(n / 1024) + ' ' + t('unitKb');
+    return n + ' ' + t('unitB');
+  }
+
+  function liveChip(row) {
+    if (row.status === 'failed') return { cls: 'failed', text: t(row.rateLimited ? 'liveLimit' : 'liveFailed') };
+    if (row.status !== 'done' || !row.verdict) {
+      return { cls: 'waiting', text: t(row.status === 'loading' ? 'liveLoading' : 'liveWaiting') };
+    }
+    if (row.verdict.verdict === 'threat') return { cls: 'threat', text: t('liveThreat') };
+    if (row.verdict.verdict === 'pulse') return { cls: 'pulse', text: t('livePulse') };
+    return { cls: 'unknown', text: t('liveUnknown') };
+  }
+
+  function liveResult(row) {
+    if (row.status === 'failed') return t(row.rateLimited ? 'liveLimit' : 'liveErrorNote');
+    if (row.status !== 'done' || !row.verdict) return '';
+    var v = row.verdict;
+    if (v.verdict === 'threat') {
+      var list = v.engines.slice(0, 3).map(function (e) { return e.engine + ': ' + e.label; }).join('; ');
+      if (v.engines.length > 3) list += ' …';
+      return fmt(t('liveEngines'), { n: v.engines.length, list: list });
+    }
+    if (v.verdict === 'pulse') {
+      var text = fmt(t('livePulses'), { n: v.pulses });
+      if (v.pulseNames.length) text += ' — ' + v.pulseNames.join(' · ');
+      return text;
+    }
+    return t('liveUnknownNote');
+  }
+
+  function liveRow(row, i) {
+    var chip = liveChip(row);
+    var result = liveResult(row);
+    return '<li class="live-file ' + chip.cls + '" data-threat="' + i + '">' +
+      '<div class="live-name"><span class="live-chip ' + chip.cls + '">' + esc(chip.text) + '</span>' +
+      '<b>' + esc(row.name) + '</b>' +
+      (row.size ? '<span class="live-size">' + esc(fmtSize(row.size)) + '</span>' : '') +
+      '</div>' +
+      (result ? '<p class="live-result">' + esc(result) + '</p>' : '') +
+      '<div class="live-links">' +
+      '<a href="https://otx.alienvault.com/indicator/file/' + esc(row.hash) + '" target="_blank" rel="noopener">' + esc(t('liveOtx')) + '</a>' +
+      '<a href="https://www.virustotal.com/gui/file/' + esc(row.hash) + '" target="_blank" rel="noopener">' + esc(t('liveVt')) + '</a>' +
+      '<button class="linkish" type="button" data-copy-hash="' + esc(row.hash) + '">' + esc(t('liveCopyHash')) + '</button>' +
+      '</div></li>';
+  }
+
+  function liveCard() {
+    var live = liveState();
+    if (!live) return '';
+    var p = state.ctx.profile || {};
+    if (!p.hasBinaries && !p.hasArchive) return '';
+    if (!live.rows.length) {
+      return '<p class="live-none" id="liveCheck">' + esc(t('liveNoTargets')) + '</p>';
+    }
+    var finished = live.rows.filter(function (r) { return r.status === 'done' || r.status === 'failed'; }).length;
+    var failed = live.rows.some(function (r) { return r.status === 'failed'; });
+    var head = live.status === 'done'
+      ? fmt(t('liveProgress'), { n: finished, m: live.rows.length })
+      : (live.status === 'running' ? t('liveLoading') : '');
+
+    var html = '<div class="live-card" id="liveCheck" aria-live="polite">' +
+      '<div class="live-head"><h3>' + esc(t('liveHead')) + '</h3>' +
+      '<span class="live-src">' + esc(t('liveSource')) + '</span>' +
+      (head ? '<span class="live-progress">' + esc(head) + '</span>' : '') +
+      '</div>' +
+      '<p class="live-note">' + esc(t('liveNote')) + '</p>' +
+      '<ul class="live-files">';
+    live.rows.forEach(function (row, i) { html += liveRow(row, i); });
+    html += '</ul>';
+    if (failed) {
+      html += '<button class="ghost live-retry" id="liveRetry" type="button">' + esc(t('liveCheckAgain')) + '</button>';
+    }
+    html += '<p class="live-foot">' + esc(t('liveNotScore')) + '</p></div>';
+    return html;
+  }
+
+  function paintLiveRow(i) {
+    var live = state.ctx && state.ctx.live;
+    if (!live || !live.rows[i]) return;
+    var el = document.querySelector('[data-threat="' + i + '"]');
+    if (!el || !el.parentNode) return;
+    var box = document.createElement('ul');
+    box.innerHTML = liveRow(live.rows[i], i);
+    el.parentNode.replaceChild(box.firstChild, el);
+  }
+
+  function paintLive() {
+    var wrap = $('liveCheck');
+    if (!wrap || !wrap.parentNode) return;
+    var box = document.createElement('div');
+    box.innerHTML = liveCard();
+    if (box.firstChild) wrap.parentNode.replaceChild(box.firstChild, wrap);
+  }
+
+  function runLiveCheck() {
+    var live = liveState();
+    if (!live || !live.rows.length) return Promise.resolve();
+    if (live.status === 'running' || live.status === 'done') return Promise.resolve();
+    live.status = 'running';
+    paintLive();
+
+    var chain = Promise.resolve();
+    live.rows.forEach(function (row, i) {
+      chain = chain.then(function () {
+        row.status = 'loading';
+        paintLiveRow(i);
+        return checkHash(row.hash).then(function (v) {
+          row.status = 'done';
+          row.verdict = v;
+        }, function (err) {
+          row.status = 'failed';
+          row.rateLimited = !!(err && err.rateLimited);
+        }).then(function () {
+          paintLiveRow(i);
+          /* stay polite: the public OTX endpoint has no key and no quota to spare */
+          return new Promise(function (resolve) { setTimeout(resolve, 350); });
+        });
+      });
+    });
+
+    return chain.then(function () {
+      live.status = 'done';
+      paintLive();
+    });
+  }
+
+  function filesWord(n) {
+    var count = n || 0;
+    if (state.lang !== 'ru') return count + ' file' + (count === 1 ? '' : 's');
+    var m10 = count % 10, m100 = count % 100, w = '\u0444\u0430\u0439\u043b\u043e\u0432';
+    if (m10 === 1 && m100 !== 11) w = '\u0444\u0430\u0439\u043b';
+    else if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) w = '\u0444\u0430\u0439\u043b\u0430';
+    return count + ' ' + w;
+  }
+
   function safetyCard() {
     var p = state.ctx.profile;
     var risk = p.risk;
     var items = [];
     var hasFiles = !!(p.hasBinaries || p.hasArchive);
     items.push(t('safetyIntro'));
-    if (p.hasSource) items.push(fmt(t('safetySourceOpen'), { n: p.sourceCount || 0 }));
+    if (p.hasSource) items.push(fmt(t('safetySourceOpen'), { n: filesWord(p.sourceCount || 0) }));
     else if (p.hasBinaries) items.push(t('safetySourceClosed'));
     if (!hasFiles) items.push(t(p.kind === 'web' ? 'safetySite' : 'safetyNoFiles'));
 
@@ -2050,20 +2400,24 @@
     if (p.hasBinaries && p.isUnsigned) items.push(t('safetyUnsigned'));
     if (p.hasArchive) items.push(t('safetyArchive'));
     if (p.hasAdmin) items.push(t('safetyAdmin'));
-    if (p.hasBinaries) items.push(t('safetyNoScan'));
+
+    var live = liveState();
+    var canLookup = !!(live && live.rows.length);
+    if (p.hasBinaries && !canLookup) items.push(t('safetyNoScan'));
 
     var html = '<div class="safety-card">' +
       '<div class="safety-head"><h2>' + esc(t('safetyHead')) + '</h2>' +
       '<span class="profile-label">LC·02</span></div>' +
       '<ul class="safety-list">';
     items.forEach(function (line) { html += '<li>' + esc(line) + '</li>'; });
-    html += '</ul>' +
-      (hasFiles
-        ? '<div class="safety-actions">' +
-        '<p class="safety-vt">' + esc(t('safetyVt')) + '</p>' +
-        '<a class="ghost" href="https://www.virustotal.com/gui/home/upload" target="_blank" rel="noopener">' +
-        esc(t('safetyVtBtn')) + '</a></div>'
-        : '') +
+    html += '</ul>';
+    if (hasFiles) html += liveCard();
+    html += (hasFiles && !canLookup
+      ? '<div class="safety-actions">' +
+      '<p class="safety-vt">' + esc(t('safetyVt')) + '</p>' +
+      '<a class="ghost" href="https://www.virustotal.com/gui/home/upload" target="_blank" rel="noopener">' +
+      esc(t('safetyVtBtn')) + '</a></div>'
+      : '') +
       '<p class="safety-not">' + esc(t('safetyNotGuarantee')) + '</p>' +
       '</div>';
     return html;
@@ -2209,6 +2563,9 @@
       state.showAll = !state.showAll;
       render();
     });
+
+    /* live lookup starts after the report is on screen, so it never delays the score */
+    if (isUser) runLiveCheck();
   }
 
   function renderIssue(f, index) {
@@ -2366,11 +2723,13 @@
 
     x.fillStyle = INK;
     x.font = '700 20px ' + SANS;
-    x.fillText('LaunchCheck', 88, 53);
+    var brandName = 'GitHub Checker';
+    var brandW = x.measureText(brandName).width;
+    x.fillText(brandName, 88, 53);
     x.fillStyle = DIM;
     x.font = '500 10px ' + MONO;
     track('1.6px');
-    x.fillText('/ REPO INSPECTION', 213, 52);
+    x.fillText('/ REPO INSPECTION', 88 + brandW + 12, 52);
     track('0px');
 
     x.textAlign = 'right';
@@ -2565,12 +2924,12 @@
       var canvas = drawCard();
       if (canvas.toBlob) {
         canvas.toBlob(function (blob) {
-          if (blob) downloadBlob(blob, slug(state.ctx.repo.name) + '-launchcheck.png', t('cardDone'));
+          if (blob) downloadBlob(blob, slug(state.ctx.repo.name) + '-githubchecker.png', t('cardDone'));
         }, 'image/png');
       } else {
         var a = document.createElement('a');
         a.href = canvas.toDataURL('image/png');
-        a.download = slug(state.ctx.repo.name) + '-launchcheck.png';
+        a.download = slug(state.ctx.repo.name) + '-githubchecker.png';
         a.click();
         toast(t('cardDone'));
       }
@@ -2580,23 +2939,24 @@
   function badgeSvg() {
     var score = state.score;
     var color = scoreColor(score);
-    var label = 'LAUNCHCHECK';
+    var label = 'GITHUB CHECKER';
     var value = score + '/100';
-    var w = 224;
+    var w = 248;
+    var split = 152;
     var mono = "JetBrains Mono, ui-monospace, Consolas, monospace";
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="30" role="img" aria-label="LaunchCheck: ' + value + '">' +
-      '<title>LaunchCheck: ' + value + '</title>' +
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="30" role="img" aria-label="GitHub Checker: ' + value + '">' +
+      '<title>GitHub Checker: ' + value + '</title>' +
       '<rect x="0.75" y="0.75" width="' + (w - 1.5) + '" height="28.5" fill="#f2ebda" stroke="#17130e" stroke-width="1.5"/>' +
-      '<rect x="130" y="0" width="' + (w - 130) + '" height="30" fill="' + color + '"/>' +
+      '<rect x="' + split + '" y="0" width="' + (w - split) + '" height="30" fill="' + color + '"/>' +
       '<rect x="12" y="12" width="6" height="6" fill="#bd3310"/>' +
-      '<text x="24" y="20" fill="#17130e" font-family="' + mono + '" font-size="10.5" font-weight="600" letter-spacing="1.2">' + label + '</text>' +
-      '<text x="197" y="20.5" fill="#f8f2e4" text-anchor="middle" font-family="' + mono + '" font-size="12" font-weight="700" letter-spacing="0.3">' + value + '</text>' +
+      '<text x="24" y="20" fill="#17130e" font-family="' + mono + '" font-size="10.5" font-weight="600" letter-spacing="1.1">' + label + '</text>' +
+      '<text x="200" y="20.5" fill="#f8f2e4" text-anchor="middle" font-family="' + mono + '" font-size="12" font-weight="700" letter-spacing="0.3">' + value + '</text>' +
       '</svg>';
   }
 
   function downloadBadge() {
     var svg = badgeSvg();
-    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'launchcheck-badge.svg', t('badgeDone'));
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'githubchecker-badge.svg', t('badgeDone'));
   }
 
   function slug(s) {
@@ -2638,11 +2998,11 @@
       state.showAll = false;
       render();
       try {
-        localStorage.setItem(LS.last, ref.owner + '/' + ref.name);
+        storeSet('last', ref.owner + '/' + ref.name);
         var url = new URL(location.href);
         url.searchParams.set('repo', ref.owner + '/' + ref.name);
         history.replaceState(null, '', url.toString());
-        document.title = ref.owner + '/' + ref.name + ' · LaunchCheck';
+        document.title = ref.owner + '/' + ref.name + ' · GitHub Checker';
       } catch (e) { /* ignore */ }
       syncModeUrl();
       $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2684,7 +3044,7 @@
   /* Rebuild the report from the data already in memory: no second fetch. */
   function applyMode(mode, animate) {
     state.mode = mode === 'user' ? 'user' : 'dev';
-    try { localStorage.setItem(LS.mode, state.mode); } catch (e) { }
+    storeSet('mode', state.mode);
     syncModeButtons();
     if (!state.ctx) { syncModeUrl(); return; }
     state.showAll = false;
@@ -2717,7 +3077,7 @@
     if (!state.ctx) document.title = t('pageTitle');
     syncModeButtons();
 
-    try { localStorage.setItem(LS.lang, state.lang); } catch (e) { }
+    storeSet('lang', state.lang);
 
     if (state.ctx) {
       state.checks = buildChecks(state.ctx, state.mode);
@@ -2738,8 +3098,8 @@
     if (next !== state.token) {
       state.token = next;
       try {
-        if (state.token) localStorage.setItem(LS.token, state.token);
-        else localStorage.removeItem(LS.token);
+        if (state.token) storeSet('token', state.token);
+        else storeDel('token');
       } catch (e) { }
       if (state.token) checkToken(false);
     }
@@ -2769,15 +3129,15 @@
   function init() {
     var params = new URLSearchParams(location.search);
     try {
-      var stored = localStorage.getItem(LS.lang);
+      var stored = storeGet('lang');
       if (stored === 'ru' || stored === 'en') {
         state.lang = stored;
       } else {
         /* first visit: follow the browser, Russian only for Russian speakers */
         state.lang = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
       }
-      state.token = localStorage.getItem(LS.token) || '';
-      var storedMode = localStorage.getItem(LS.mode);
+      state.token = storeGet('token') || '';
+      var storedMode = storeGet('mode');
       if (storedMode === 'user' || storedMode === 'dev') state.mode = storedMode;
     } catch (e) {
       state.lang = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
@@ -2827,7 +3187,7 @@
     $('tokenClear').addEventListener('click', function () {
       $('tokenInput').value = '';
       state.token = '';
-      try { localStorage.removeItem(LS.token); } catch (e) { }
+      storeDel('token');
       $('tokenStatus').textContent = '';
       toast(t('tokenClear'));
     });
@@ -2844,7 +3204,7 @@
     /* deep link + last repo */
     var deep = params.get('repo');
     var last = deep || null;
-    if (!last) { try { last = localStorage.getItem(LS.last); } catch (e) { } }
+    if (!last) last = storeGet('last');
     if (last) {
       $('repoInput').value = last;
       if (deep) run(deep);
@@ -2852,6 +3212,24 @@
 
     renderRate();
     document.addEventListener('click', function (e) {
+      var hashBtn = e.target.closest ? e.target.closest('[data-copy-hash]') : null;
+      if (hashBtn) {
+        copyText(hashBtn.getAttribute('data-copy-hash') || '', t('liveCopied'));
+        return;
+      }
+      var retry = e.target.closest ? e.target.closest('#liveRetry') : null;
+      if (retry && state.ctx && state.ctx.live) {
+        var live = state.ctx.live;
+        live.status = 'idle';
+        live.rows.forEach(function (row) {
+          row.status = 'waiting';
+          row.verdict = null;
+          row.rateLimited = false;
+        });
+        paintLive();
+        runLiveCheck();
+        return;
+      }
       var btn = e.target.closest ? e.target.closest('.copy') : null;
       if (!btn) return;
       var idx = parseInt(btn.getAttribute('data-issue'), 10);
@@ -2873,6 +3251,9 @@
       claimsMatch: claimsMatch,
       scanRisk: scanRisk,
       scoreChecks: scoreChecks,
+      sha256Of: sha256Of,
+      liveTargets: liveTargets,
+      verdictFromOtx: verdictFromOtx,
       PROFILES: PROFILES
     };
     return;

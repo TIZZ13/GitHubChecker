@@ -1,9 +1,9 @@
-# What LaunchCheck checks
+# What GitHub Checker checks
 
-LaunchCheck has two audit profiles over the same public repository data:
+GitHub Checker has two audit profiles over the same public repository data:
 
 - **Author** (developer mode) — what stops the project from looking ready, with a prompt for an AI agent.
-- **Downloader** (user mode) — what is known about the project and its files before running them. It is not a virus scan and not a safety guarantee.
+- **Downloader** (user mode) — what is known about the project and its files before running them. The score is not a guarantee; on top of it, downloader mode runs a live hash lookup (below) that shows what public threat databases know about the release files.
 
 Every check is a fixed rule. There is no AI and no randomness: the same repository always gets the same score, in both languages and in both modes.
 
@@ -20,6 +20,22 @@ round(earned weight / applicable weight × 100)
 Skipped checks add nothing to either side, so a project is never punished for a rule that does not apply. If every check in a profile is skipped, the score is 0 rather than a division by zero.
 
 A mode switch after an audit rebuilds the check list from the data already in memory. No GitHub request is made, and the mode is stored in `?mode=` and `localStorage`.
+
+## Live file check (downloader mode only)
+
+The score never depends on the network beyond GitHub, and it never changes over time. The live check is a separate evidence layer.
+
+1. GitHub publishes a `sha256` digest for every release asset in the releases API. The page reads the digest, so a file can be identified without downloading a single byte.
+2. Only the **newest release** is checked. If its assets have no digest, older releases are used. Up to **three** files are checked, installers first (`.exe`, `.msi`, `.dmg`, `.pkg`, `.AppImage`, `.deb`, `.rpm`, `.apk`), then archives, then anything else.
+3. Each hash is looked up in **AlienVault OTX**, two public endpoints per file: `/general` (community pulses) and `/analysis` (engine results). The browser sends the hash and nothing else; the file is never downloaded.
+4. The result per file is one of:
+   - **Engines detected a threat** — ClamAV, Microsoft Defender or a YARA rule returned a detection. The report names the engine and the signature.
+   - **Reports mention it** — the hash appears in community pulses. The report shows how many.
+   - **No data** — the hash is not in OTX. This is *unknown*, not *clean*.
+   - **Check failed** — the service did not answer or rate-limited the request. The file is left with its VirusTotal and OTX links so it can be checked by hand.
+5. Each row links to the full OTX report and to VirusTotal for the same hash, and offers a copy-hash button.
+
+The lookup is capped at three files with a short pause between them because the OTX endpoint is public and needs no key. It never runs in author mode, is cached per audit so switching modes does not refetch, and **never touches `scoreChecks`**: the score stays identical in Russian and English, today and a year from now.
 
 ## Project detection
 
@@ -218,7 +234,7 @@ Two accuracy rules keep the scan honest:
 
 - Actual code quality, architecture, performance or accessibility of the product.
 - Dependency vulnerabilities and license compatibility.
-- Antivirus results, file hashes or sandbox execution. LaunchCheck never downloads or runs release files.
+- Antivirus verdicts as part of the score. Hash lookups in downloader mode are shown as separate evidence and never change the number. The project never downloads or runs a release file.
 - Popularity as a score: stars, forks and downloads are shown where relevant but are not a quality verdict.
 - Anything that requires cloning the repository. Only public API data is used.
 

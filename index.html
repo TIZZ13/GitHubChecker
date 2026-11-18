@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LaunchCheck — audit your GitHub repo before you launch it</title>
-<meta name="description" content="Free audit for a public GitHub repository. Two modes: fix your own project, or judge whether a project is worth downloading. Score out of 100, plain-language issues. No signup, no backend.">
+<title>GitHub Checker — audit a GitHub repo before you publish or download it</title>
+<meta name="description" content="Free audit for a public GitHub repository. Author mode: what to fix before people see it. Downloader mode: what is known about the files, with a live hash check on AlienVault OTX. No signup, no backend.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="LaunchCheck — audit your GitHub repo before you launch it">
-<meta property="og:description" content="Paste a repository link, get a score out of 100 and a plain-language list of problems. Two modes: for the author, or for someone about to download the project.">
-<meta property="og:site_name" content="LaunchCheck">
+<meta property="og:title" content="GitHub Checker — audit a repo before you publish or download it">
+<meta property="og:description" content="Score out of 100, plain-language issues, and a live file check by SHA-256 against public threat databases. For the author, or for someone about to download the project.">
+<meta property="og:site_name" content="GitHub Checker">
 <meta property="og:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -16,15 +16,33 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://tizz13.github.io/launchcheck/assets/og.jpg">
 <meta name="theme-color" content="#f2ebda">
+<link rel="canonical" href="https://tizz13.github.io/launchcheck/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f2ebda'/%3E%3Crect x='5' y='5' width='54' height='54' fill='none' stroke='%2317130e' stroke-width='4'/%3E%3Cpath d='M19 34l9 9 18-21' fill='none' stroke='%23bd3310' stroke-width='7' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/styles.css?v=15">
+<link rel="stylesheet" href="assets/styles.css?v=16">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "GitHub Checker",
+  "url": "https://tizz13.github.io/launchcheck/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any",
+  "isAccessibleForFree": true,
+  "inLanguage": ["ru", "en"],
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free audit for a public GitHub repository: a score out of 100, plain-language issues, and a live SHA-256 file check against public threat databases."
+}
+</script>
 </head>
 <body>
 <script>
 /* Set the language before the first paint so both language blocks never show at once. */
 (function () {
   var l = null;
-  try { l = localStorage.getItem('launchcheck.lang'); } catch (e) { }
+  try {
+    l = localStorage.getItem('githubchecker.lang');
+    if (l !== 'ru' && l !== 'en') l = localStorage.getItem('launchcheck.lang');
+  } catch (e) { }
   if (l !== 'ru' && l !== 'en') l = /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en';
   document.documentElement.lang = l;
   document.body.className = 'lang-' + l;
@@ -33,11 +51,11 @@
 <div class="aura" aria-hidden="true"></div>
 
 <header class="top">
-  <a class="brand" href="./" aria-label="LaunchCheck">
+  <a class="brand" href="./" aria-label="GitHub Checker">
     <span class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </span>
-    <span class="brand-text">LaunchCheck</span>
+    <span class="brand-text">GitHub Checker</span>
   </a>
 
   <div class="top-right">
@@ -134,7 +152,8 @@
 
       <h2>Два режима проверки</h2>
       <p><b>Автор проекта.</b> 23 правила о том, что мешает проекту выглядеть готовым, и готовые промпты для твоего ИИ-агента.</p>
-      <p><b>Скачиваю.</b> 21 правило о том, стоит ли доверять готовым файлам: что известно о коде, есть ли контрольные суммы и предупреждения о поведении. Это не проверка на вирусы и не гарантия безопасности.</p>
+      <p><b>Скачиваю.</b> 21 правило о том, стоит ли доверять готовым файлам: что известно о коде, есть ли контрольные суммы и предупреждения о поведении.</p>
+      <p><b>Живая проверка файлов.</b> В режиме «Скачиваю» страница берёт SHA-256 каждого файла прямо из GitHub и сверяет его с AlienVault OTX: отчёты сообщества, вердикты ClamAV, Microsoft Defender и правила YARA. Файл не скачивается — уходит только хеш. На балл это не влияет: балл остаётся детерминированным, а живая проверка показывает, что известно о файле сегодня.</p>
       <p class="privacy">Правила подстраиваются под тип проекта: библиотеке и настольной программе не нужно живое демо, а маленькому шуточному проекту не снижают балл за отсутствие CI. Неприменимые проверки не штрафуют и перечислены как «Не оценивалось». Оценка пересчитывается из уже загруженных данных: режим можно переключить после проверки, без новых запросов.</p>
 
       <h2>Как это работает</h2>
@@ -145,7 +164,7 @@
       </ol>
 
       <h2>Приватность</h2>
-      <p class="privacy">Ничего не отправляется никуда, кроме <code>api.github.com</code>. Нет аналитики, нет аккаунтов, нет базы данных. Токен, если добавишь, хранится только в твоём браузере. Найденные секреты не показываются в интерфейсе и не логируются.</p>
+      <p class="privacy">Ничего не отправляется никуда, кроме <code>api.github.com</code> и — в режиме «Скачиваю» — <code>otx.alienvault.com</code>, куда уходит только SHA-256 файла. Нет аналитики, нет аккаунтов, нет базы данных. Токен, если добавишь, хранится только в твоём браузере. Найденные секреты не показываются в интерфейсе и не логируются.</p>
     </div>
 
     <div data-lang="en">
@@ -161,7 +180,8 @@
 
       <h2>Two audit modes</h2>
       <p><b>I am the author.</b> 23 rules about what keeps the project from looking ready, plus ready-to-paste prompts for your AI agent.</p>
-      <p><b>I am downloading.</b> 21 rules about whether the ready-made files are worth trusting: what is known about the code, whether checksums and behaviour warnings exist. This is not a virus scan and not a safety guarantee.</p>
+      <p><b>I am downloading.</b> 21 rules about whether the ready-made files are worth trusting: what is known about the code, whether checksums and behaviour warnings exist.</p>
+      <p><b>Live file check.</b> In downloader mode the page takes each file's SHA-256 straight from GitHub and looks it up in AlienVault OTX: community reports, ClamAV, Microsoft Defender and YARA rule verdicts. The file is never downloaded — only the hash leaves the browser. It does not affect the score: the score stays deterministic, while the live check shows what is known about the file today.</p>
       <p class="privacy">The rules adjust to the kind of project: a library or a desktop app does not need a live demo, and a small joke project is not marked down for missing CI. Checks that do not apply are not scored and are listed as “Not scored”. The score is recomputed from data already loaded, so you can switch modes after an audit without new requests.</p>
 
       <h2>How it works</h2>
@@ -172,13 +192,13 @@
       </ol>
 
       <h2>Privacy</h2>
-      <p class="privacy">Nothing is sent anywhere except <code>api.github.com</code>. No analytics, no accounts, no database. A token, if you add one, stays in your browser. Detected secrets are never rendered or logged.</p>
+      <p class="privacy">Nothing is sent anywhere except <code>api.github.com</code> and, in downloader mode, <code>otx.alienvault.com</code>, which receives a file hash and nothing else. No analytics, no accounts, no database. A token, if you add one, stays in your browser. Detected secrets are never rendered or logged.</p>
     </div>
   </section>
 </main>
 
 <footer class="foot">
-  <span data-i18n="foot">LaunchCheck · статический сайт на GitHub Pages</span>
+  <span data-i18n="foot">GitHub Checker · статический сайт на GitHub Pages</span>
   <a id="ghLink" href="#" target="_blank" rel="noopener">GitHub</a>
 </footer>
 
@@ -204,6 +224,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="assets/app.js?v=15" defer></script>
+<script src="assets/app.js?v=16" defer></script>
 </body>
 </html>

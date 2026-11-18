@@ -5,7 +5,8 @@ const assert = require('node:assert');
 
 const {
   parseRepo, scanText, fmt, detectProfile, readmeLangInfo,
-  claimsMatch, scanRisk, scoreChecks, PROFILES
+  claimsMatch, scanRisk, scoreChecks, sha256Of, liveTargets,
+  verdictFromOtx, PROFILES
 } = require('../assets/app.js');
 
 test('parseRepo accepts a full GitHub URL', () => {
@@ -310,4 +311,112 @@ test('both profiles add up to 100 points', () => {
   const sum = cats => cats.reduce((n, c) => n + c.max, 0);
   assert.strictEqual(sum(PROFILES.dev.cats), 100);
   assert.strictEqual(sum(PROFILES.user.cats), 100);
+});
+
+/* ------------------------------------------------------------------ */
+/* live file check                                                     */
+/* ------------------------------------------------------------------ */
+
+const DIGEST_A = 'sha256:' + 'a'.repeat(64);
+const DIGEST_B = 'sha256:' + 'B'.repeat(64);
+
+function asset(name, extra) {
+  return Object.assign({ name, size: 1000, downloads: 0, tag: 'v1.0.0', digest: DIGEST_A }, extra);
+}
+
+test('sha256Of reads only a well-formed GitHub digest', () => {
+  assert.strictEqual(sha256Of({ digest: DIGEST_A }), 'a'.repeat(64));
+  assert.strictEqual(sha256Of({ digest: DIGEST_B }), 'b'.repeat(64));
+  assert.strictEqual(sha256Of({ digest: '' }), '');
+  assert.strictEqual(sha256Of({}), '');
+  assert.strictEqual(sha256Of({ digest: 'md5:' + 'a'.repeat(32) }), '');
+  assert.strictEqual(sha256Of({ digest: 'sha256:abc' }), '');
+});
+
+test('liveTargets prefers installers over archives from the newest release', () => {
+  const profile = {
+    allAssets: [
+      asset('Source.zip', { digest: DIGEST_A }),
+      asset('Setup.exe', { digest: DIGEST_B, downloads: 5 }),
+      asset('Thing.7z', { digest: DIGEST_A, downloads: 9 })
+    ]
+  };
+  const picked = liveTargets(profile, 'v1.0.0').map(a => a.name);
+  assert.deepStrictEqual(picked, ['Setup.exe', 'Thing.7z', 'Source.zip']);
+});
+
+test('liveTargets checks the newest release first and caps the lookup at three files', () => {
+  const profile = {
+    allAssets: [
+      asset('old.exe', { tag: 'v0.9.0' }),
+      asset('a.exe', { tag: 'v1.0.0' }),
+      asset('b.exe', { tag: 'v1.0.0' }),
+      asset('c.exe', { tag: 'v1.0.0' }),
+      asset('d.exe', { tag: 'v1.0.0' })
+    ]
+  };
+  const picked = liveTargets(profile, 'v1.0.0').map(a => a.name);
+  assert.strictEqual(picked.length, 3);
+  assert.ok(!picked.includes('old.exe'));
+});
+
+test('liveTargets falls back to older releases when the newest has no digest', () => {
+  const profile = {
+    allAssets: [
+      asset('new.exe', { tag: 'v1.0.0', digest: '' }),
+      asset('old.exe', { tag: 'v0.9.0' })
+    ]
+  };
+  assert.deepStrictEqual(liveTargets(profile, 'v1.0.0').map(a => a.name), ['old.exe']);
+});
+
+test('liveTargets returns nothing when no asset carries a digest', () => {
+  const profile = { allAssets: [asset('x.exe', { digest: '' })] };
+  assert.deepStrictEqual(liveTargets(profile, 'v1.0.0'), []);
+});
+
+test('verdictFromOtx reports an engine detection as a threat', () => {
+  const general = { pulse_info: { count: 2, pulses: [{ name: 'Emotet' }, { name: 'Qakbot' }] } };
+  const analysis = {
+    analysis: {
+      plugins: {
+        clamav: { results: { detection: 'Win.Malware.Test' } },
+        msdefender: { results: { detection: 'Trojan:Win32/Test' } }
+      }
+    }
+  };
+  const v = verdictFromOtx('abc', general, analysis);
+  assert.strictEqual(v.verdict, 'threat');
+  assert.strictEqual(v.answered, true);
+  assert.deepStrictEqual(v.engines.map(e => e.engine), ['ClamAV', 'Microsoft Defender']);
+  assert.deepStrictEqual(v.pulseNames, ['Emotet', 'Qakbot']);
+});
+
+test('verdictFromOtx reads a YARA rule name', () => {
+  const analysis = {
+    analysis: {
+      plugins: { yarad: { results: { detection: [{ rule_name: 'win_malware_generic' }] } } }
+    }
+  };
+  const v = verdictFromOtx('abc', { pulse_info: { count: 0 } }, analysis);
+  assert.strictEqual(v.verdict, 'threat');
+  assert.deepStrictEqual(v.engines, [{ engine: 'YARA', label: 'win_malware_generic' }]);
+});
+
+test('verdictFromOtx reports community reports without a detection as a pulse', () => {
+  const v = verdictFromOtx('abc', { pulse_info: { count: 3, pulses: [] } }, { analysis: { plugins: {} } });
+  assert.strictEqual(v.verdict, 'pulse');
+  assert.strictEqual(v.pulses, 3);
+});
+
+test('verdictFromOtx calls an empty answer unknown, never clean', () => {
+  const v = verdictFromOtx('abc', { pulse_info: { count: 0, pulses: [] } }, { analysis: { plugins: {} } });
+  assert.strictEqual(v.verdict, 'unknown');
+  assert.strictEqual(v.answered, true);
+});
+
+test('verdictFromOtx marks a total failure as unanswered', () => {
+  const v = verdictFromOtx('abc', null, null);
+  assert.strictEqual(v.answered, false);
+  assert.strictEqual(v.verdict, 'unknown');
 });

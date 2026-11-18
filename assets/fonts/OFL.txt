@@ -1,4 +1,4 @@
-Fonts bundled with LaunchCheck
+Fonts bundled with GitHub Checker
 ==============================
 
 Literata — Copyright 2017 The Literata Project Authors
